@@ -1,0 +1,66 @@
+callfn = @lambda(fn, args ...) {
+
+	return apply(fn, args);
+};
+
+errorhandler = @lambda(args ...) {
+	// we may not even have I/O. You just lose.
+};
+
+// race to get I/O as soon as possible.
+@include <stx.cqct>
+@include <control.cqct>
+@include <dispatch.cqct>
+@include <sys.cqct>
+
+errorhandler = @lambda(msg, args ...) {
+	@local s;
+
+	s = sprintfa("PRIMITIVE ERROR: %s\n", msg);
+	sys_write(2, s, length(s));
+	sys_exit(1);
+};
+
+@include <callcc.cqct>
+@include <dynamicwind.cqct>
+@include <gc.cqct>
+@include <malloc.cqct>
+@include <io.cqct>
+
+// Yup. stdout doesn't exist any earlier than this.
+stdin = mksysfd(0, ions`Fread, "<stdin>");
+stdout = mksysfd(1, ions`Fwrite, "<stdout>");
+stderr = mksysfd(2, ions`Fwrite, "<stderr>");
+
+// these are no longer intrinsic
+@global fork, execve;
+fork = sys_fork;
+execve = sys_execve;
+
+@include <cqct.cqct>
+
+@global $l1start;
+
+callcc(@lambda(done) {
+
+@define errorhandler(msg)
+{
+	callcc(@lambda(errk){
+		printf("boot error: %s\n", msg);
+		kbacktrace(continuationstack(errk));
+		exit(1);
+	});
+}
+
+@define interrupthandler()
+{
+	callcc(@lambda(k){
+		printf("boot interrupted\n");
+		kbacktrace(continuationstack(k));
+		exit(1);
+	});
+}
+
+@include "bootmain.cqct"
+
+});

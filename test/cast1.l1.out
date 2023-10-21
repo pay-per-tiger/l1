@@ -1,0 +1,1 @@
+typeof(*p->p) == int

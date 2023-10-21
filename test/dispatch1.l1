@@ -1,0 +1,25 @@
+@define dispatch(args ...) {
+	@local i;
+	printf("dispatch invoked on %a\n", pop(args));
+	printf("dispatch method is %s\n", pop(args));
+	for(i = 0; i < length(args); i++)
+		printf("arg[%d] = %a\n", i, listref(args, i));
+}
+
+ns = c32le;
+as = mkas([ 'dispatch : dispatch ], "myas");
+dom = mkdom(ns, as, "mydom");
+printf("isns(dom.ns) = %d\n", isns(dom.ns));
+printf("isas(dom.as) = %d\n", isas(dom.as));
+
+@define test(o){
+	@local fn;
+	o.foo(1, 2, 3);
+	o.bar();
+	fn = o.baz;
+	fn(fn, fn);
+	fn = o.dispatch;
+	fn("yo!", fn);
+}
+test(dom);
+test(as);

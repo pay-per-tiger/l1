@@ -1,0 +1,4137 @@
+typedef long unsigned int size_t;
+typedef long int __off_t;
+typedef long int __off64_t;
+typedef void _IO_lock_t;
+typedef struct anon_10 __sigset_t;
+typedef long int __jmp_buf[0x8];
+typedef struct __jmp_buf_tag jmp_buf[0x1];
+typedef long unsigned int uint64_t;
+typedef uint64_t u64;
+typedef u64 Imm;
+typedef struct Expr Expr;
+typedef enum anon_14 Kind;
+typedef enum Cbase Cbase;
+typedef struct Src Src;
+typedef struct Lits Lits;
+typedef struct Liti Liti;
+typedef struct YYstate YYstate;
+typedef struct In In;
+typedef struct U U;
+typedef union YYSTYPE YYSTYPE;
+typedef struct YYLTYPE YYLTYPE;
+typedef unsigned char yybool;
+typedef enum anon_21 YYRESULTTAG;
+typedef int yyStateNum;
+typedef int yyRuleNum;
+typedef short int yySymbol;
+typedef struct yyGLRState yyGLRState;
+typedef struct yyGLRStateSet yyGLRStateSet;
+typedef struct yySemanticOption yySemanticOption;
+typedef union yyGLRStackItem yyGLRStackItem;
+typedef struct yyGLRStack yyGLRStack;
+typedef struct _IO_FILE FILE;
+typedef struct yy_buffer_state * YY_BUFFER_STATE;
+typedef unsigned int yy_size_t;
+typedef int yy_state_type;
+typedef unsigned int uint32_t;
+typedef struct HT HT;
+typedef struct Hent Hent;
+typedef long int __time_t;
+typedef long int __suseconds_t;
+typedef struct __va_list_tag __gnuc_va_list[0x1];
+typedef __gnuc_va_list va_list;
+typedef void Faulthook();
+typedef struct Decl Decl;
+typedef struct Enum Enum;
+typedef struct Type Type;
+typedef struct BFgeom BFgeom;
+typedef uint32_t u32;
+typedef enum anon_140 Qkind;
+typedef struct Head Head;
+typedef struct Heap Heap;
+typedef struct Head * Val;
+typedef struct Closure Closure;
+typedef struct Toplevel Toplevel;
+typedef struct VM VM;
+typedef enum Rkind Rkind;
+typedef enum Tkind Tkind;
+typedef struct Ctl Ctl;
+typedef struct Code Code;
+typedef struct Topvec Topvec;
+typedef struct Konst Konst;
+typedef struct Konsti Konsti;
+typedef struct As As;
+typedef struct Dom Dom;
+typedef struct Fd Fd;
+typedef struct Ns Ns;
+typedef struct Str Str;
+typedef struct Tab Tab;
+typedef struct Vec Vec;
+typedef struct Xtypename Xtypename;
+typedef void Cfn(VM *, Imm, Val *, Val *);
+typedef void Ccl(VM *, Imm, Val *, Val *, Val *);
+typedef struct Tabidx Tabidx;
+typedef struct Tabx Tabx;
+typedef enum Skind Skind;
+typedef enum anon_175 ikind;
+typedef struct Location Location;
+typedef struct Operand Operand;
+typedef struct Insn Insn;
+typedef struct Root Root;
+typedef struct Rootset Rootset;
+typedef struct Err Err;
+typedef struct Xenv Xenv;
+typedef enum anon_296 Reg;
+typedef struct Env Env;
+typedef struct Lambda Lambda;
+typedef struct Cases Cases;
+typedef struct CGEnv CGEnv;
+typedef struct Vardef Vardef;
+typedef struct Varref Varref;
+typedef struct VEnv VEnv;
+typedef struct VDset VDset;
+typedef struct VRset VRset;
+typedef signed char int8_t;
+typedef short int int16_t;
+typedef int int32_t;
+typedef long int int64_t;
+typedef unsigned char uint8_t;
+typedef short unsigned int uint16_t;
+typedef long unsigned int uintptr_t;
+typedef uintptr_t Thread;
+typedef struct Box Box;
+typedef struct Cval Cval;
+typedef struct List List;
+typedef struct Pair Pair;
+typedef struct Range Range;
+typedef struct Rd Rd;
+typedef struct Rec Rec;
+typedef struct Listx Listx;
+typedef struct Fmt Fmt;
+typedef struct Ictx Ictx;
+typedef int (*Freeheadfn)(Head *);
+typedef struct GC GC;
+typedef struct Hashop Hashop;
+typedef struct NSctx NSctx;
+typedef struct NSroot NSroot;
+typedef long unsigned int __ino_t;
+typedef struct __dirstream DIR;
+typedef long unsigned int __dev_t;
+typedef unsigned int __uid_t;
+typedef unsigned int __gid_t;
+typedef unsigned int __mode_t;
+typedef long unsigned int __nlink_t;
+typedef long int __blksize_t;
+typedef long int __blkcnt_t;
+typedef short unsigned int sa_family_t;
+typedef uint16_t in_port_t;
+typedef uint32_t in_addr_t;
+typedef struct Trace Trace;
+typedef struct Profiler Profiler;
+typedef long int __ssize_t;
+typedef __ssize_t ssize_t;
+typedef __sigset_t sigset_t;
+struct YYstate;
+struct HT;
+struct Heap;
+struct Topvec;
+struct __dirstream;
+struct Closure;
+struct Expr;
+struct Toplevel;
+struct VM;
+struct _IO_FILE {
+	@0x0	int _flags;
+	@0x8	char *_IO_read_ptr;
+	@0x10	char *_IO_read_end;
+	@0x18	char *_IO_read_base;
+	@0x20	char *_IO_write_base;
+	@0x28	char *_IO_write_ptr;
+	@0x30	char *_IO_write_end;
+	@0x38	char *_IO_buf_base;
+	@0x40	char *_IO_buf_end;
+	@0x48	char *_IO_save_base;
+	@0x50	char *_IO_backup_base;
+	@0x58	char *_IO_save_end;
+	@0x60	struct _IO_marker *_markers;
+	@0x68	struct _IO_FILE *_chain;
+	@0x70	int _fileno;
+	@0x74	int _flags2;
+	@0x78	__off_t _old_offset;
+	@0x80	short unsigned int _cur_column;
+	@0x82	signed char _vtable_offset;
+	@0x83	char _shortbuf[0x1];
+	@0x88	_IO_lock_t *_lock;
+	@0x90	__off64_t _offset;
+	@0x98	void *__pad1;
+	@0xa0	void *__pad2;
+	@0xa8	void *__pad3;
+	@0xb0	void *__pad4;
+	@0xb8	size_t __pad5;
+	@0xc0	int _mode;
+	@0xc4	char _unused2[0x14];
+	@0xd8;
+};
+
+struct _IO_marker {
+	@0x0	struct _IO_marker *_next;
+	@0x8	struct _IO_FILE *_sbuf;
+	@0x10	int _pos;
+	@0x18;
+};
+
+struct anon_10 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+struct __jmp_buf_tag {
+	@0x0	__jmp_buf __jmpbuf;
+	@0x40	int __mask_was_saved;
+	@0x48	__sigset_t __saved_mask;
+	@0xc8;
+};
+
+struct Expr {
+	@0x0	Kind kind;
+	@0x8	char *id;
+	@0x10	Lits *lits;
+	@0x18	Liti liti;
+	@0x28	Kind op;
+	@0x30	Expr *e1;
+	@0x38	Expr *e2;
+	@0x40	Expr *e3;
+	@0x48	Expr *e4;
+	@0x50	Src src;
+	@0x60	void *xp;
+	@0x68	unsigned int xn;
+	@0x70;
+};
+
+enum anon_14 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum Cbase {
+	Vundef = 0,
+	Vchar = 1,
+	Vshort = 2,
+	Vint = 3,
+	Vlong = 4,
+	Vvlong = 5,
+	Vuchar = 6,
+	Vushort = 7,
+	Vuint = 8,
+	Vulong = 9,
+	Vuvlong = 10,
+	Vfloat = 11,
+	Vdouble = 12,
+	Vlongdouble = 13,
+	Vnbase = 14,
+	Vptr = 14,
+	Vvoid = 15,
+	Vnallbase = 16,
+};
+
+struct Src {
+	@0x0	char *filename;
+	@0x8	unsigned int col;
+	@0xc	unsigned int line;
+	@0x10;
+};
+
+struct Lits {
+	@0x0	char *s;
+	@0x8	unsigned int len;
+	@0x10;
+};
+
+struct Liti {
+	@0x0	Imm val;
+	@0x8	Cbase base;
+	@0x10;
+};
+
+struct In {
+	@0x0	struct Src src;
+	@0x10	char *buf;
+	@0x18	int dofree;
+	@0x20	YYstate *yy;
+	@0x28;
+};
+
+struct U {
+	@0x0	jmp_buf jmp;
+	@0xc8	In in[0x80];
+	@0x14c8	In *inp;
+	@0x14d0	Expr *el;
+	@0x14d8;
+};
+
+struct anon_20 {
+	@0x0	char *p;
+	@0x8	long unsigned int len;
+	@0x10;
+};
+
+union YYSTYPE {
+	@0x0	Expr *expr;
+	@0x0	struct anon_20 chars;
+	@0x0	int kind;
+	@0x10;
+};
+
+struct YYLTYPE {
+	@0x0	char yydummy;
+	@0x1;
+};
+
+enum anon_21 {
+	yyok = 0,
+	yyaccept = 1,
+	yyabort = 2,
+	yyerr = 3,
+};
+
+struct yyGLRState {
+	@0x0	yybool yyisState;
+	@0x1	yybool yyresolved;
+	@0x4	yyStateNum yylrState;
+	@0x8	yyGLRState *yypred;
+	@0x10	size_t yyposn;
+	@0x18	union anon_22 yysemantics;
+	@0x28	YYLTYPE yyloc;
+	@0x30;
+};
+
+struct yyGLRStateSet {
+	@0x0	yyGLRState **yystates;
+	@0x8	yybool *yylookaheadNeeds;
+	@0x10	size_t yysize;
+	@0x18	size_t yycapacity;
+	@0x20;
+};
+
+struct yySemanticOption {
+	@0x0	yybool yyisState;
+	@0x4	yyRuleNum yyrule;
+	@0x8	yyGLRState *yystate;
+	@0x10	int yyrawchar;
+	@0x18	YYSTYPE yyval;
+	@0x28	YYLTYPE yyloc;
+	@0x30	yySemanticOption *yynext;
+	@0x38;
+};
+
+union yyGLRStackItem {
+	@0x0	yyGLRState yystate;
+	@0x0	yySemanticOption yyoption;
+	@0x38;
+};
+
+struct yyGLRStack {
+	@0x0	int yyerrState;
+	@0x4	int yyerrcnt;
+	@0x8	int yyrawchar;
+	@0x10	YYSTYPE yyval;
+	@0x20	YYLTYPE yyloc;
+	@0x28	jmp_buf yyexception_buffer;
+	@0xf0	yyGLRStackItem *yyitems;
+	@0xf8	yyGLRStackItem *yynextFree;
+	@0x100	size_t yyspaceLeft;
+	@0x108	yyGLRState *yysplitPoint;
+	@0x110	yyGLRState *yylastDeleted;
+	@0x118	yyGLRStateSet yytops;
+	@0x138;
+};
+
+union anon_22 {
+	@0x0	yySemanticOption *yyfirstVal;
+	@0x0	YYSTYPE yysval;
+	@0x10;
+};
+
+struct yy_buffer_state {
+	@0x0	FILE *yy_input_file;
+	@0x8	char *yy_ch_buf;
+	@0x10	char *yy_buf_pos;
+	@0x18	yy_size_t yy_buf_size;
+	@0x1c	int yy_n_chars;
+	@0x20	int yy_is_our_buffer;
+	@0x24	int yy_is_interactive;
+	@0x28	int yy_at_bol;
+	@0x2c	int yy_fill_buffer;
+	@0x30	int yy_buffer_status;
+	@0x38;
+};
+
+struct anon_80 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_84 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct YYstate {
+	@0x0	YY_BUFFER_STATE yy;
+	@0x8;
+};
+
+struct anon_90 {
+	@0x0	char *p;
+	@0x8	long unsigned int len;
+	@0x10;
+};
+
+struct HT {
+	@0x0	long unsigned int sz;
+	@0x8	long unsigned int nent;
+	@0x10	Hent **ht;
+	@0x18	Hent **hent;
+	@0x20;
+};
+
+struct Hent {
+	@0x0	char *key;
+	@0x8	unsigned int keylen;
+	@0x10	void *val;
+	@0x18	Hent *next;
+	@0x20;
+};
+
+struct __va_list_tag {
+	@0x0	unsigned int gp_offset;
+	@0x4	unsigned int fp_offset;
+	@0x8	void *overflow_arg_area;
+	@0x10	void *reg_save_area;
+	@0x18;
+};
+
+struct timeval {
+	@0x0	__time_t tv_sec;
+	@0x8	__suseconds_t tv_usec;
+	@0x10;
+};
+
+enum anon_118 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct Decl {
+	@0x0	Type *type;
+	@0x8	char *id;
+	@0x10	Expr *offs;
+	@0x18	Decl *link;
+	@0x20;
+};
+
+struct Enum {
+	@0x0	char *id;
+	@0x8	Expr *val;
+	@0x10	Enum *link;
+	@0x18;
+};
+
+struct Type {
+	@0x0	unsigned int kind;
+	@0x4	unsigned int base;
+	@0x8	char *tid;
+	@0x10	char *tag;
+	@0x18	char *dom;
+	@0x20	Decl *field;
+	@0x28	Enum *en;
+	@0x30	Expr *sz;
+	@0x38	Expr *bitw;
+	@0x40	Expr *bit0;
+	@0x48	Decl *param;
+	@0x50	Expr *cnt;
+	@0x58	Type *link;
+	@0x60;
+};
+
+struct BFgeom {
+	@0x0	Imm bp;
+	@0x8	Imm bs;
+	@0x10	Imm addr;
+	@0x18	Imm cnt;
+	@0x20	unsigned int isbe;
+	@0x24	int les;
+	@0x28	int bes;
+	@0x30;
+};
+
+struct anon_134 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_140 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+struct Head {
+	@0x0	Qkind qkind;
+	@0x4	unsigned int color;
+	@0x8	unsigned int inrootset;
+	@0x10	Heap *heap;
+	@0x18	Head *alink;
+	@0x20	Head *link;
+	@0x28	int state;
+	@0x30;
+};
+
+struct Closure {
+	@0x0	Head hd;
+	@0x30	Code *code;
+	@0x38	long unsigned int entry;
+	@0x40	unsigned int dlen;
+	@0x48	Val *display;
+	@0x50	char *id;
+	@0x58	Imm fp;
+	@0x60	Cfn *cfn;
+	@0x68	Ccl *ccl;
+	@0x70;
+};
+
+struct Toplevel {
+	@0x0	struct Env *env;
+	@0x8;
+};
+
+struct VM {
+	@0x0	Val stack[0x400];
+	@0x2000	Dom *litdom;
+	@0x2008	Ns *litns;
+	@0x2010	Xtypename **litbase;
+	@0x2018	Str *sget;
+	@0x2020	Str *sput;
+	@0x2028	Str *smap;
+	@0x2030	Fd *stdout;
+	@0x2038	Fd *stdin;
+	@0x2040	Root **prot;
+	@0x2048	Rootset rs;
+	@0x2070	unsigned int pdepth;
+	@0x2074	unsigned int pmax;
+	@0x2078	Toplevel *top;
+	@0x2080	Imm sp;
+	@0x2088	Imm fp;
+	@0x2090	Imm pc;
+	@0x2098	Closure *clx;
+	@0x20a0	Closure *halt;
+	@0x20a8	Insn *ibuf;
+	@0x20b0	Val ac;
+	@0x20b8	Val cl;
+	@0x20c0	Err *err;
+	@0x20c8	unsigned int edepth;
+	@0x20cc	unsigned int emax;
+	@0x20d0	Tab *prof;
+	@0x20d8;
+};
+
+enum anon_144 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum Rkind {
+	Rundef = 0,
+	Ru08le = 1,
+	Ru16le = 2,
+	Ru32le = 3,
+	Ru64le = 4,
+	Rs08le = 5,
+	Rs16le = 6,
+	Rs32le = 7,
+	Rs64le = 8,
+	Ru08be = 9,
+	Ru16be = 10,
+	Ru32be = 11,
+	Ru64be = 12,
+	Rs08be = 13,
+	Rs16be = 14,
+	Rs32be = 15,
+	Rs64be = 16,
+	Rnrep = 17,
+};
+
+enum Tkind {
+	Tvoid = 0,
+	Tbase = 1,
+	Tstruct = 2,
+	Tunion = 3,
+	Tenum = 4,
+	Tptr = 5,
+	Tarr = 6,
+	Tfun = 7,
+	Ttypedef = 8,
+	Tbitfield = 9,
+	Tconst = 10,
+	Txaccess = 11,
+	Tundef = 12,
+};
+
+struct Ctl {
+	@0x0	unsigned int ckind;
+	@0x8	char *label;
+	@0x10	int used;
+	@0x18	long unsigned int insn;
+	@0x20	void *insnx;
+	@0x28	Ctl *l1;
+	@0x30	Ctl *l2;
+	@0x38	Ctl *link;
+	@0x40	Src *src;
+	@0x48	Code *code;
+	@0x50;
+};
+
+struct Code {
+	@0x0	Head hd;
+	@0x30	long unsigned int refcnt;
+	@0x38	long unsigned int ninsn;
+	@0x40	long unsigned int maxinsn;
+	@0x48	long unsigned int nconst;
+	@0x50	Insn *insn;
+	@0x58	Ctl **labels;
+	@0x60	Ctl *clist;
+	@0x68	Expr *src;
+	@0x70	Topvec *topvec;
+	@0x78	Konst *konst;
+	@0x80	Konsti *konsti;
+	@0x88;
+};
+
+struct Konst {
+	@0x0	HT *ht;
+	@0x8;
+};
+
+struct Konsti {
+	@0x0	HT *ht;
+	@0x8;
+};
+
+struct As {
+	@0x0	Head hd;
+	@0x30	Closure *dispatch;
+	@0x38	Str *name;
+	@0x40;
+};
+
+struct Dom {
+	@0x0	Head hd;
+	@0x30	As *as;
+	@0x38	Ns *ns;
+	@0x40	Str *name;
+	@0x48;
+};
+
+struct Fd {
+	@0x0	Head hd;
+	@0x30	void (*close)(Fd *);
+	@0x38	int fd;
+	@0x40	Str *name;
+	@0x48	enum Fflag flags;
+	@0x50;
+};
+
+struct Ns {
+	@0x0	Head hd;
+	@0x30	Closure *enumsym;
+	@0x38	Closure *enumtype;
+	@0x40	Closure *looksym;
+	@0x48	Closure *looktype;
+	@0x50	Closure *lookaddr;
+	@0x58	Str *name;
+	@0x60	Xtypename *base[0x10];
+	@0xe0;
+};
+
+struct Str {
+	@0x0	Head hd;
+	@0x30	Skind skind;
+	@0x38	u64 len;
+	@0x40	size_t mlen;
+	@0x48	char *s;
+	@0x50;
+};
+
+struct Tab {
+	@0x0	Head hd;
+	@0x30	u32 cnt;
+	@0x38	Tabx *x;
+	@0x40;
+};
+
+struct Vec {
+	@0x0	Head hd;
+	@0x30	Imm len;
+	@0x38	Val *vec;
+	@0x40;
+};
+
+struct Xtypename {
+	@0x0	Head hd;
+	@0x30	Tkind tkind;
+	@0x34	Cbase __xpg_basename;
+	@0x38	Rkind rep;
+	@0x40	Str *tid;
+	@0x48	Str *tag;
+	@0x50	Val cnt;
+	@0x58	Val sz;
+	@0x60	Val bit0;
+	@0x68	Xtypename *link;
+	@0x70	Vec *field;
+	@0x78	Vec *param;
+	@0x80	Vec *konst;
+	@0x88	Closure *get;
+	@0x90	Closure *put;
+	@0x98;
+};
+
+struct Tabidx {
+	@0x0	u32 idx;
+	@0x8	Tabidx *link;
+	@0x10;
+};
+
+struct Tabx {
+	@0x0	u32 nxt;
+	@0x4	u32 lim;
+	@0x8	u32 sz;
+	@0x10	Val *key;
+	@0x18	Val *val;
+	@0x20	Tabidx **idx;
+	@0x28;
+};
+
+enum Fflag {
+	Fclosed = 1,
+	Fread = 2,
+	Fwrite = 4,
+};
+
+enum Skind {
+	Sperm = 0,
+	Smalloc = 1,
+	Smmap = 2,
+};
+
+enum anon_175 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+struct Location {
+	@0x0	unsigned int kind;
+	@0x4	unsigned int indirect;
+	@0x8	unsigned int idx;
+	@0x10	Val *val;
+	@0x18;
+};
+
+union anon_176 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct Operand {
+	@0x0	unsigned int okind;
+	@0x8	union anon_176 u;
+	@0x20;
+};
+
+struct Insn {
+	@0x0	ikind kind;
+	@0x8	void *go;
+	@0x10	Operand op1;
+	@0x30	Operand op2;
+	@0x50	Operand op3;
+	@0x70	Operand dst;
+	@0x90	Ctl *dstlabel;
+	@0x98;
+};
+
+struct Root {
+	@0x0	Head *hd;
+	@0x8	Root *link;
+	@0x10;
+};
+
+struct Rootset {
+	@0x0	Root *roots;
+	@0x8	Root *last;
+	@0x10	Root *before_last;
+	@0x18	Root *this;
+	@0x20	Root *free;
+	@0x28;
+};
+
+struct Err {
+	@0x0	jmp_buf esc;
+	@0xc8	unsigned int pdepth;
+	@0xd0;
+};
+
+struct Xenv {
+	@0x0	HT *ht;
+	@0x8	Xenv *link;
+	@0x10;
+};
+
+struct Env {
+	@0x0	HT *var;
+	@0x8	HT *rd;
+	@0x10	Xenv *con;
+	@0x18;
+};
+
+enum anon_195 {
+	Rdec = 0,
+	Rhex = 1,
+	Roct = 2,
+};
+
+enum anon_196 {
+	Snone = 0,
+	Su = 1,
+	Sl = 2,
+	Sul = 3,
+	Sll = 4,
+	Sull = 5,
+};
+
+struct anon_205 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_209 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct anon_221 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_225 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct Arg {
+	@0x0	Expr **e;
+	@0x8	U *ctx;
+	@0x10;
+};
+
+struct anon_244 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_248 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct anon_257 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_263 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+enum anon_267 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct Topvec {
+	@0x0	unsigned int nid;
+	@0x4	unsigned int maxid;
+	@0x8	char **id;
+	@0x10	Val **val;
+	@0x18;
+};
+
+enum anon_295 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+enum anon_296 {
+	Rsp = 0,
+	Rfp = 1,
+	Rpc = 2,
+	Rac = 3,
+	Rcl = 4,
+};
+
+union anon_297 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct Lambda {
+	@0x0	Vardef *param;
+	@0x8	Vardef *local;
+	@0x10	unsigned int ntmp;
+	@0x14	unsigned int npar;
+	@0x18	unsigned int maxloc;
+	@0x1c	unsigned int vararg;
+	@0x20	VEnv *ve;
+	@0x28	VRset *capture;
+	@0x30	char *id;
+	@0x38;
+};
+
+struct Cases {
+	@0x0	unsigned int n;
+	@0x4	unsigned int max;
+	@0x8	Expr **cmp;
+	@0x10	Ctl **ctl;
+	@0x18	Ctl *dflt;
+	@0x20	Expr *dflte;
+	@0x28;
+};
+
+struct CGEnv {
+	@0x0	Lambda *b;
+	@0x8	Ctl *Return;
+	@0x10	Ctl *Return0;
+	@0x18	Ctl *Break;
+	@0x20	Ctl *Continue;
+	@0x28	Cases *cases;
+	@0x30;
+};
+
+enum anon_319 {
+	VDparam = 1,
+	VDlocal = 2,
+	VDtoplevel = 3,
+};
+
+struct Vardef {
+	@0x0	char *id;
+	@0x8	enum anon_319 kind;
+	@0x10	Lambda *lmbda;
+	@0x18	unsigned int idx;
+	@0x20	Val *val;
+	@0x28	unsigned int indirect;
+	@0x30;
+};
+
+struct Varref {
+	@0x0	Vardef *vd;
+	@0x8	unsigned int closed;
+	@0xc	unsigned int cidx;
+	@0x10;
+};
+
+struct VEnv {
+	@0x0	unsigned int nv;
+	@0x8	Vardef *hd;
+	@0x10	VEnv *link;
+	@0x18;
+};
+
+struct VDset {
+	@0x0	unsigned int nvd;
+	@0x4	unsigned int maxvd;
+	@0x8	Vardef **vd;
+	@0x10;
+};
+
+struct VRset {
+	@0x0	unsigned int nvr;
+	@0x8	Varref *vr;
+	@0x10;
+};
+
+struct anon_350 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_357 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+struct Heap {
+	@0x0	char *id;
+	@0x8	Qkind qkind;
+	@0xc	unsigned int sz;
+	@0x10	unsigned int clearit;
+	@0x18	Freeheadfn free1;
+	@0x20	Head *(*iter)(Head *, Ictx *);
+	@0x28	Head *alloc;
+	@0x30	Head *swept;
+	@0x38	Head *sweep;
+	@0x40	Head *free;
+	@0x48	long unsigned int nalloc;
+	@0x50	long unsigned int nfree;
+	@0x58	long unsigned int nha;
+	@0x60;
+};
+
+enum anon_361 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+struct Box {
+	@0x0	Head hd;
+	@0x30	Val v;
+	@0x38;
+};
+
+struct Cval {
+	@0x0	Head hd;
+	@0x30	Dom *dom;
+	@0x38	Xtypename *type;
+	@0x40	Imm val;
+	@0x48;
+};
+
+struct List {
+	@0x0	Head hd;
+	@0x30	Listx *x;
+	@0x38;
+};
+
+struct Pair {
+	@0x0	Head hd;
+	@0x30	Val car;
+	@0x38	Val cdr;
+	@0x40;
+};
+
+struct Range {
+	@0x0	Head hd;
+	@0x30	Cval *beg;
+	@0x38	Cval *len;
+	@0x40;
+};
+
+struct Rd {
+	@0x0	Head hd;
+	@0x30	Str *name;
+	@0x38	Imm nf;
+	@0x40	List *fname;
+	@0x48	Closure *is;
+	@0x50	Closure *mk;
+	@0x58	Closure *fmt;
+	@0x60	Tab *get;
+	@0x68	Tab *set;
+	@0x70;
+};
+
+struct Rec {
+	@0x0	Head hd;
+	@0x30	Imm nf;
+	@0x38	Rd *rd;
+	@0x40	Val *field;
+	@0x48;
+};
+
+struct Listx {
+	@0x0	u32 hd;
+	@0x4	u32 tl;
+	@0x8	u32 sz;
+	@0x10	Val *val;
+	@0x18	Val *oval;
+	@0x20;
+};
+
+struct Fmt {
+	@0x0	char *start;
+	@0x8	char *to;
+	@0x10	char *stop;
+	@0x18	int (*flush)(Fmt *);
+	@0x20	void *farg;
+	@0x28	int width;
+	@0x2c	int prec;
+	@0x30	unsigned int flags;
+	@0x38;
+};
+
+enum anon_393 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+struct Ictx {
+	@0x0	u64 n;
+	@0x8	void *x;
+	@0x10;
+};
+
+union anon_394 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct GC {
+	@0x0	void (*gcpoll)(GC *);
+	@0x8	void (*gckill)(GC *);
+	@0x10	unsigned char gcpause;
+	@0x11	unsigned char gcrun;
+	@0x18	Thread t;
+	@0x20	int cm;
+	@0x24	int cgc;
+	@0x28	Rootset roots;
+	@0x50	Rootset stores;
+	@0x78	u64 heapmax;
+	@0x80	u64 heaphi;
+	@0x88;
+};
+
+struct Hashop {
+	@0x0	u32 (*hash)(Val);
+	@0x8	int (*eq)(Val, Val);
+	@0x10;
+};
+
+struct NSctx {
+	@0x0	Ns *ons;
+	@0x8	Tab *otype;
+	@0x10	Tab *osym;
+	@0x18	Tab *rawtype;
+	@0x20	Tab *rawsym;
+	@0x28	Tab *type;
+	@0x30	Tab *sym;
+	@0x38	Tab *undef;
+	@0x40	Rkind ptrrep;
+	@0x48;
+};
+
+struct NSroot {
+	@0x0	Rkind base[0xe];
+	@0x38	Cbase ptr;
+	@0x3c	Cbase xint8;
+	@0x40	Cbase xint16;
+	@0x44	Cbase xint32;
+	@0x48	Cbase xint64;
+	@0x4c	Cbase xuint8;
+	@0x50	Cbase xuint16;
+	@0x54	Cbase xuint32;
+	@0x58	Cbase xuint64;
+	@0x60	char *name;
+	@0x68;
+};
+
+struct anon_469 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+struct dirent {
+	@0x0	__ino_t d_ino;
+	@0x8	__off_t d_off;
+	@0x10	short unsigned int d_reclen;
+	@0x12	unsigned char d_type;
+	@0x13	char d_name[0x100];
+	@0x118;
+};
+
+enum anon_474 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+enum anon_478 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum anon_503 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+union anon_504 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct anon_526 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+struct timespec {
+	@0x0	__time_t tv_sec;
+	@0x8	long int tv_nsec;
+	@0x10;
+};
+
+struct stat {
+	@0x0	__dev_t st_dev;
+	@0x8	__ino_t st_ino;
+	@0x10	__nlink_t st_nlink;
+	@0x18	__mode_t st_mode;
+	@0x1c	__uid_t st_uid;
+	@0x20	__gid_t st_gid;
+	@0x24	int pad0;
+	@0x28	__dev_t st_rdev;
+	@0x30	__off_t st_size;
+	@0x38	__blksize_t st_blksize;
+	@0x40	__blkcnt_t st_blocks;
+	@0x48	struct timespec st_atim;
+	@0x58	struct timespec st_mtim;
+	@0x68	struct timespec st_ctim;
+	@0x78	long int __unused[0x3];
+	@0x90;
+};
+
+enum anon_533 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+enum anon_537 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum anon_566 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+union anon_567 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct anon_589 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+struct in_addr {
+	@0x0	in_addr_t s_addr;
+	@0x4;
+};
+
+struct sockaddr_in {
+	@0x0	sa_family_t sin_family;
+	@0x2	in_port_t sin_port;
+	@0x4	struct in_addr sin_addr;
+	@0x8	unsigned char sin_zero[0x8];
+	@0x10;
+};
+
+struct hostent {
+	@0x0	char *h_name;
+	@0x8	char **h_aliases;
+	@0x10	int h_addrtype;
+	@0x14	int h_length;
+	@0x18	char **h_addr_list;
+	@0x20;
+};
+
+struct servent {
+	@0x0	char *s_name;
+	@0x8	char **s_aliases;
+	@0x10	int s_port;
+	@0x18	char *s_proto;
+	@0x20;
+};
+
+enum anon_595 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+enum anon_599 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum anon_624 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+union anon_625 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct anon_650 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+enum anon_655 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+enum anon_659 {
+	Echar = 0,
+	Edouble = 1,
+	Efloat = 2,
+	Eint = 3,
+	Elong = 4,
+	Eshort = 5,
+	Esigned = 6,
+	Eunsigned = 7,
+	Evoid = 8,
+	Enbase = 9,
+	Eadd = 10,
+	Eambig = 11,
+	Earef = 12,
+	Earr = 13,
+	Earrow = 14,
+	Eband = 15,
+	Ebase = 16,
+	Ebinop = 17,
+	Ebitfield = 18,
+	Eblock = 19,
+	Ebor = 20,
+	Ebreak = 21,
+	Ebxor = 22,
+	Ecall = 23,
+	Ecase = 24,
+	Ecast = 25,
+	Ecomma = 26,
+	Econd = 27,
+	Econst = 28,
+	Econsts = 29,
+	Econtainer = 30,
+	Econtinue = 31,
+	Edecl = 32,
+	Edecls = 33,
+	Edefault = 34,
+	Edefconst = 35,
+	Edefine = 36,
+	Edeflocal = 37,
+	Edefrec = 38,
+	Ederef = 39,
+	Ediv = 40,
+	Edo = 41,
+	Edot = 42,
+	Edotdot = 43,
+	Eelist = 44,
+	Eenum = 45,
+	Eenumel = 46,
+	Eeq = 47,
+	Efieldoff = 48,
+	Efields = 49,
+	Efor = 50,
+	Efun = 51,
+	Eg = 52,
+	Ege = 53,
+	Eglobal = 54,
+	Egop = 55,
+	Egt = 56,
+	Eid = 57,
+	Eif = 58,
+	Elambda = 59,
+	Eland = 60,
+	Ele = 61,
+	Elist = 62,
+	Elor = 63,
+	Elt = 64,
+	Emod = 65,
+	Emul = 66,
+	Ens = 67,
+	Eneq = 68,
+	Enop = 69,
+	Enil = 70,
+	Enull = 71,
+	Epostdec = 72,
+	Epostinc = 73,
+	Epredec = 74,
+	Epreinc = 75,
+	Eptr = 76,
+	Eref = 77,
+	Eret = 78,
+	Eshl = 79,
+	Eshr = 80,
+	Esizeofe = 81,
+	Esizeoft = 82,
+	Estruct = 83,
+	Esub = 84,
+	Eswitch = 85,
+	Etick = 86,
+	Etid = 87,
+	Etypedef = 88,
+	Etypeofe = 89,
+	Etypeoft = 90,
+	Euminus = 91,
+	Eunion = 92,
+	Eunot = 93,
+	Euplus = 94,
+	Eutwiddle = 95,
+	Ewhile = 96,
+	Excast = 97,
+	E_cval = 98,
+	E_ref = 99,
+	E_sizeof = 100,
+	Emax = 101,
+};
+
+enum anon_685 {
+	Iadd = 0,
+	Iand = 1,
+	Iargc = 2,
+	Ibin = 3,
+	Ibox = 4,
+	Ibox0 = 5,
+	Icall = 6,
+	Icallc = 7,
+	Icallt = 8,
+	Iclo = 9,
+	Icmpeq = 10,
+	Icmpgt = 11,
+	Icmpge = 12,
+	Icmplt = 13,
+	Icmple = 14,
+	Icmpneq = 15,
+	Icval = 16,
+	Idiv = 17,
+	Iframe = 18,
+	Ihalt = 19,
+	Iinv = 20,
+	Ijmp = 21,
+	Ijnz = 22,
+	Ijz = 23,
+	Ikg = 24,
+	Ikp = 25,
+	Ilist = 26,
+	Imod = 27,
+	Imov = 28,
+	Imul = 29,
+	Ineg = 30,
+	Inot = 31,
+	Ior = 32,
+	Inop = 33,
+	Ipanic = 34,
+	Ipush = 35,
+	Ipushi = 36,
+	Iref = 37,
+	Iret = 38,
+	Ishl = 39,
+	Ishr = 40,
+	Isizeof = 41,
+	Isub = 42,
+	Ixcast = 43,
+	Ixor = 44,
+	Iopmax = 45,
+};
+
+union anon_686 {
+	@0x0	Location loc;
+	@0x0	Val liti;
+	@0x0	Lits *lits;
+	@0x18;
+};
+
+struct Trace {
+	@0x0	Imm pc;
+	@0x8	Closure *cl;
+	@0x10;
+};
+
+struct Profiler {
+	@0x0	Trace *trace;
+	@0x8	u32 ntrace;
+	@0x10	Head **defer;
+	@0x18	u32 ndefer;
+	@0x20	Freeheadfn freecl;
+	@0x28	Freeheadfn freecode;
+	@0x30;
+};
+
+struct anon_720 {
+	@0x0	long unsigned int __val[0x10];
+	@0x80;
+};
+
+struct itimerval {
+	@0x0	struct timeval it_interval;
+	@0x10	struct timeval it_value;
+	@0x20;
+};
+
+enum anon_740 {
+	Qundef = 0,
+	Qnil = 1,
+	Qnull = 2,
+	Qas = 3,
+	Qbox = 4,
+	Qcl = 5,
+	Qcode = 6,
+	Qcval = 7,
+	Qdom = 8,
+	Qfd = 9,
+	Qlist = 10,
+	Qns = 11,
+	Qpair = 12,
+	Qrange = 13,
+	Qrd = 14,
+	Qrec = 15,
+	Qstr = 16,
+	Qtab = 17,
+	Qvec = 18,
+	Qxtn = 19,
+	Qnkind = 20,
+};
+
+@0x402ea8	void yyFail(yyGLRStack * yystackp, U * ctx, char * yymsg);
+@0x402ee2	void yyMemoryExhausted(yyGLRStack * yystackp);
+@0x402f00	void yyfillin(yyGLRStackItem * yyvsp, int yylow0, int yylow1);
+@0x403017	YYRESULTTAG yyuserAction(yyRuleNum yyn, int yyrhslen, yyGLRStackItem * yyvsp, YYSTYPE * yyvalp, YYLTYPE * yylocp, yyGLRStack * yystackp, U * ctx);
+@0x4099c5	int yyfill(yyGLRStackItem * yyvsp, int * yylow, int yylow1, yybool yynormal);
+@0x409a0c	void yyuserMerge(int yyn, YYSTYPE * yy0, YYSTYPE * yy1);
+@0x409aae	void yydestruct(char * yymsg, int yytype, YYSTYPE * yyvaluep, U * ctx);
+@0x409ad2	void yydestroyGLRState(char * yymsg, yyGLRState * yys, U * ctx);
+@0x409b7b	int yyrhsLength(yyRuleNum yyrule);
+@0x409b93	void yyaddDeferredAction(yyGLRStack * yystackp, size_t yyk, yyGLRState * yystate, yyGLRState * rhs, yyRuleNum yyrule);
+@0x409c6d	yyGLRStackItem *yynewGLRStackItem(yyGLRStack * yystackp, yybool yyisState);
+@0x409ccc	yybool yyinitStateSet(yyGLRStateSet * yyset);
+@0x409d6a	void yyfreeStateSet(yyGLRStateSet * yyset);
+@0x409d91	yybool yyinitGLRStack(yyGLRStack * yystackp, size_t yysize);
+@0x409e5a	void yyexpandGLRStack(yyGLRStack * yystackp);
+@0x40a1e9	void yyfreeGLRStack(yyGLRStack * yystackp);
+@0x40a217	void yyundeleteLastStack(yyGLRStack * yystackp);
+@0x40a27a	size_t yysplitStack(yyGLRStack * yystackp, size_t yyk);
+@0x40a44b	yybool yyidenticalOptions(yySemanticOption * yyy0, yySemanticOption * yyy1);
+@0x40a4eb	void yymergeOptionSets(yySemanticOption * yyy0, yySemanticOption * yyy1);
+@0x40a663	int yypreference(yySemanticOption * y0, yySemanticOption * y1);
+@0x40a730	YYRESULTTAG yyresolveStates(yyGLRState * yys, int yyn, yyGLRStack * yystackp, U * ctx);
+@0x40a7c5	YYRESULTTAG yyresolveAction(yySemanticOption * yyopt, yyGLRStack * yystackp, YYSTYPE * yyvalp, YYLTYPE * yylocp, U * ctx);
+@0x40a9ab	YYRESULTTAG yyreportAmbiguity(yySemanticOption * yyx0, yySemanticOption * yyx1, U * ctx);
+@0x40a9d4	void yyresolveLocations(yyGLRState * yys1, int yyn1, yyGLRStack * yystackp, U * ctx);
+@0x40aba6	YYRESULTTAG yyresolveValue(yyGLRState * yys, yyGLRStack * yystackp, U * ctx);
+@0x40ae3f	YYRESULTTAG yyresolveStack(yyGLRStack * yystackp, U * ctx);
+@0x40aed6	void yycompressStack(yyGLRStack * yystackp);
+@0x40b10d	YYRESULTTAG yyprocessOneStack(yyGLRStack * yystackp, size_t yyk, size_t yyposn, U * ctx);
+@0x40b3de	yybool yyisDefaultedState(yyStateNum yystate);
+@0x40b3fe	yyRuleNum yydefaultAction(yyStateNum yystate);
+@0x40b417	void yygetLRActions(yyStateNum yystate, int yytoken, int * yyaction, short int ** yyconflicts);
+@0x40b4be	yybool yyisShiftAction(int yyaction);
+@0x40b4d1	yybool yyisErrorAction(int yyaction);
+@0x40b4e4	void yymarkStackDeleted(yyGLRStack * yystackp, size_t yyk);
+@0x40b554	YYRESULTTAG yyglrReduce(yyGLRStack * yystackp, size_t yyk, yyRuleNum yyrule, yybool yyforceEval, U * ctx);
+@0x40b85e	YYRESULTTAG yydoAction(yyGLRStack * yystackp, size_t yyk, yyRuleNum yyrule, YYSTYPE * yyvalp, YYLTYPE * yylocp, U * ctx);
+@0x40baa4	void yyglrShift(yyGLRStack * yystackp, size_t yyk, yyStateNum yylrState, size_t yyposn, YYSTYPE * yyvalp, YYLTYPE * yylocp);
+@0x40bb73	void yyupdateSplit(yyGLRStack * yystackp, yyGLRState * yys);
+@0x40bbb1	yySymbol yylhsNonterm(yyRuleNum yyrule);
+@0x40bbc9	yyStateNum yyLRgotoState(yyStateNum yystate, yySymbol yylhs);
+@0x40bc3b	void yyglrShiftDefer(yyGLRStack * yystackp, size_t yyk, yyStateNum yylrState, size_t yyposn, yyGLRState * rhs, yyRuleNum yyrule);
+@0x40bcf2	void yyreportSyntaxError(yyGLRStack * yystackp, U * ctx);
+@0x40bd2d	void yyrecoverSyntaxError(yyGLRStack * yystackp, U * ctx);
+@0x40c10a	void yyremoveDeletes(yyGLRStack * yystackp);
+@0x40c1e2	int yyparse(U * ctx);
+@0x40ca5e	void yy_yypstack(yyGLRState * yys);
+@0x40cac6	void yypstates(yyGLRState * yyst);
+@0x40cb12	void yypstack(yyGLRStack * yystackp, size_t yyk);
+@0x40cb43	void yypdumpstack(yyGLRStack * yystackp);
+@0x40ce95	void yyerror(U * ctx, char * s);
+@0x40ceb9	void duptickid(Expr * e);
+@0x40cf3f	Expr *castmerge(YYSTYPE ye1, YYSTYPE ye2);
+@0x40d003	Expr *mulmerge(YYSTYPE ye1, YYSTYPE ye2);
+@0x40d09f	int ofkind(int kind);
+@0x40d0d3	Expr *ofmerge(YYSTYPE ye1, YYSTYPE ye2);
+@0x69c5c0	YYSTYPE yyval_default;
+@0x45bb20	unsigned char yytranslate[0x13f];
+@0x45bc60	unsigned char yyr1[0x114];
+@0x45bd80	unsigned char yyr2[0x114];
+@0x45bea0	unsigned char yydprec[0x114];
+@0x45bfc0	unsigned char yymerger[0x114];
+@0x45c0e0	short unsigned int yydefact[0x1fa];
+@0x45c4e0	short int yydefgoto[0x58];
+@0x45c5a0	short int yypact[0x1fa];
+@0x45c9a0	short int yypgoto[0x58];
+@0x45ca60	short int yytable[0x758];
+@0x45d920	unsigned char yyconflp[0x758];
+@0x45e080	short int yyconfl[0xd];
+@0x45e0a0	short int yycheck[0x758];
+@0x45ef60	unsigned char yystos[0x1fa];
+@0x45f15c	int YYEOF;
+@0x45f160	int YYEMPTY;
+@0x40d18c	int yylex(YYSTYPE * lvalp, U * ctx);
+@0x40f3a7	int yy_get_next_buffer(void);
+@0x40f6e1	yy_state_type yy_get_previous_state(void);
+@0x40f789	yy_state_type yy_try_NUL_trans(yy_state_type yy_current_state);
+@0x40f7fd	void yyunput(int c, char * yy_bp);
+@0x40f944	int input(void);
+@0x40fa9c	void yyrestart(FILE * input_file);
+@0x40fae3	void yy_switch_to_buffer(YY_BUFFER_STATE new_buffer);
+@0x40fb56	void yy_load_buffer_state(void);
+@0x40fbad	YY_BUFFER_STATE yy_create_buffer(FILE * file, int size);
+@0x40fc34	void yy_delete_buffer(YY_BUFFER_STATE b);
+@0x40fc82	void yy_init_buffer(YY_BUFFER_STATE b, FILE * file);
+@0x40fce8	void yy_flush_buffer(YY_BUFFER_STATE b);
+@0x40fd5a	YY_BUFFER_STATE yy_scan_buffer(char * base, yy_size_t size);
+@0x40fe53	YY_BUFFER_STATE yy_scan_string(char * yy_str);
+@0x40fe8a	YY_BUFFER_STATE yy_scan_bytes(char * bytes, int len);
+@0x40ff45	void yy_fatal_error(char * msg);
+@0x40ff75	void *yy_flex_alloc(yy_size_t size);
+@0x40ff8a	void *yy_flex_realloc(void * ptr, yy_size_t size);
+@0x40ffa7	void yy_flex_free(void * ptr);
+@0x40ffbe	int yylex_destroy(void);
+@0x40ffc9	int yywrap(void);
+@0x40ffd4	void comment(U * ctx);
+@0x410074	void count(U * ctx);
+@0x4100fb	int chars(YYSTYPE * lvalp, int token);
+@0x410149	YYstate *mkyystate(FILE * fp);
+@0x410169	YYstate *mkyystatestr(char * buf);
+@0x41019c	void freeyystate(YYstate * yy);
+@0x4101bf	void setyystate(YYstate * yy);
+@0x69c5e0	YY_BUFFER_STATE yy_current_buffer;
+@0x69c5f4	char yy_hold_char;
+@0x69c5f8	int yy_n_chars;
+@0x69c5e8	char *yy_c_buf_p;
+@0x68cd00	int yy_init;
+@0x69c5f0	int yy_start;
+@0x69c5fc	int yy_did_buffer_switch_on_eof;
+@0x45fb80	short int yy_nxt[0x129][0x80];
+@0x472480	short int yy_accept[0x129];
+@0x69c600	yy_state_type yy_last_accepting_state;
+@0x69c608	char *yy_last_accepting_cpos;
+@0x4726e0	yy_state_type yy_NUL_trans[0x129];
+@0x69ca58	int yyleng;
+@0x69c5d0	FILE *yyin;
+@0x69c5d8	FILE *yyout;
+@0x69ca50	char *yytext;
+@0x4101dc	HT *mkhtsz(long unsigned int sz);
+@0x410245	HT *mkht(void);
+@0x410255	void freeht(HT * ht);
+@0x4102e3	long unsigned int shash(char * s, unsigned int len);
+@0x41034d	Hent *_hget(HT * ht, char * k, unsigned int len);
+@0x410423	void *hget(HT * ht, char * k, unsigned int len);
+@0x41046d	void hexpand(HT * ht);
+@0x4105a5	void hput(HT * ht, char * k, unsigned int len, void * v);
+@0x4106d8	void hforeach(HT * ht, void (*f)(void *, char *, void *), void * u);
+@0x410753	long unsigned int hnent(HT * ht);
+@0x410765	void *hrefval(HT * ht, long unsigned int idx);
+@0x4107b0	int cqctfaulthook(Faulthook *h, int in);
+@0x410890	void vmsg(char * fmt, struct __va_list_tag * args);
+@0x4108be	void msg(char * fmt, ...);
+@0x4109ab	void fatal(char * fmt, ...);
+@0x410ad0	char *xstrdup(char * s);
+@0x410b7c	char *xstrndup(char * s, long unsigned int len);
+@0x410bd1	void *emalloc(size_t size);
+@0x410c54	void efree(void * p);
+@0x410c95	void *erealloc(void * p, size_t old, size_t new);
+@0x410d69	void tvdiff(struct timeval * a, struct timeval * b, struct timeval * c);
+@0x410de4	char *strnchr(char * s, int c, long unsigned int len);
+@0x410e37	int xisgraph(int c);
+@0x410e5f	int xisspace(int c);
+@0x69c620	Faulthook *faulthook[0x5];
+@0x69c648	unsigned int nfh;
+@0x69ca68	u64 cqctmeminuse;
+@0x69ca60	u64 cqctmemtotal;
+@0x410e90	void abbrevlits(char * buf, unsigned int len, Lits * lits);
+@0x410f4d	void printexpr(Expr * e);
+@0x411172	void indent(unsigned int nindent);
+@0x41119a	int printlocals(Expr * e, unsigned int ni);
+@0x411238	void printargs(Expr * e, unsigned int ni, int more);
+@0x411291	char *opstr(unsigned int op);
+@0x4112cb	void printcqct0(Expr * e, unsigned int ni);
+@0x411f40	void printcqct(Expr * e);
+@0x411f5c	int needsparen(unsigned int kind);
+@0x411f83	char *fmtdecllist(Decl * p);
+@0x41211e	char *fmttype(Type * t, char * o);
+@0x4127a6	char *fmtdecl(Decl * d);
+@0x412810	void printdecl(Decl * d);
+@0x412847	void printvars(Expr * e);
+@0x68d060	char *Opstr[0x65];
+@0x68cd20	char *S[0x65];
+@0x4128d4	int logceil(int n);
+@0x41293f	int bitfieldgeom(BFgeom * bfg);
+@0x412af0	Imm bitfieldget(char * s, BFgeom * bfg);
+@0x412bc1	Imm bitfieldput(char * s, BFgeom * bfg, Imm val);
+@0x412d50	void parseerror(U * ctx, char * fmt, ...);
+@0x412f33	Lits *mklits(char * s, unsigned int len);
+@0x412f8d	Lits *copylits(Lits * lits);
+@0x412fae	void freelits(Lits * lits);
+@0x412fc5	Type *newtype(void);
+@0x412fe1	Decl *newdecl(void);
+@0x412ffd	Expr *newexprsrc(Src * src, unsigned int kind, Expr * e1, Expr * e2, Expr * e3, Expr * e4);
+@0x413087	Expr *newexpr(unsigned int kind, Expr * e1, Expr * e2, Expr * e3, Expr * e4);
+@0x4130cc	Expr *newbinopsrc(Src * src, unsigned int kind, Expr * e1, Expr * e2);
+@0x413119	Expr *newbinop(unsigned int kind, Expr * e1, Expr * e2);
+@0x413143	Expr *newgopsrc(Src * src, unsigned int kind, Expr * e1, Expr * e2);
+@0x413190	Expr *newgop(unsigned int kind, Expr * e1, Expr * e2);
+@0x4131ba	void freeexpr(Expr * e);
+@0x4132b1	Expr *copyexpr(Expr * e);
+@0x4133fc	Expr *invert(Expr * e);
+@0x413484	Expr *flatten(Expr * e);
+@0x413529	Expr *nullelist(void);
+@0x41354e	Expr *ptrto(Expr * ptre, Expr * e);
+@0x41358f	Expr *doid(char * s);
+@0x4135d8	Expr *doidnsrc(Src * src, char * s, long unsigned int len);
+@0x413632	Expr *doidn(char * s, long unsigned int len);
+@0x413656	Expr *mkconst(Cbase type, Imm val);
+@0x4136a4	Expr *mkconstliti(Liti * liti);
+@0x4136f0	int isoctdigit(int c);
+@0x413718	int xisdigit(int c);
+@0x413740	int xisxdigit(int c);
+@0x413784	int parseliti(char * s, long unsigned int len, Liti * liti, char ** err);
+@0x413de8	Expr *doconst(U * ctx, char * s, long unsigned int len);
+@0x413e32	Expr *doconstssrc(Src * src, char * s, long unsigned int len);
+@0x4140ec	Expr *doconsts(char * s, long unsigned int len);
+@0x414110	Expr *doticksrc(Src * src, Expr * dom, Expr * id);
+@0x414150	Expr *dotick(Expr * dom, Expr * id);
+@0x414174	Expr *exprinc(Expr * e);
+@0x414224	void freeenum(Enum * en);
+@0x414271	Enum *recenums(Type * t, Expr * e, Expr * val);
+@0x414391	Enum *enums(Type * t, Expr * e);
+@0x4143c2	Decl *sufields(U * ctx, Type * su, Expr * e, Expr ** sz);
+@0x4145dc	Decl *params(U * ctx, Expr * e);
+@0x41465a	Cbase baselist(U * ctx, Expr * e);
+@0x4146f8	Type *specifier(U * ctx, Expr * e);
+@0x414903	Decl *declarator(U * ctx, Type * bt, Expr * e);
+@0x414b17	Decl *copydecls(Decl * dl);
+@0x414b98	Type *copytype(Type * t);
+@0x414d50	Decl *dodecls(U * ctx, Expr * e);
+@0x414e61	Decl *dodecl(U * ctx, Expr * e);
+@0x414ea5	Expr *dotypes(U * ctx, Expr * e);
+@0x414fb1	void dotop(U * ctx, Expr * e);
+@0x415004	void initparse(void);
+@0x41501b	void freefilename(void * u, char * k, void * v);
+@0x41503a	void finiparse(void);
+@0x415062	void pushyy(U * ctx, char * filename, char * buf, int dofree);
+@0x415215	int popyy(U * ctx);
+@0x4152f5	void tryinclude(U * ctx, char * raw);
+@0x4155e0	Expr *doparse(char * buf, char * whence);
+@0x4156ad	Expr *cqctparsefile(char * filename);
+@0x4156ff	Expr *cqctparsestr(char * str, char * whence);
+@0x41571e	Closure *cqctcompile(Expr * e, Toplevel * top);
+@0x415838	char **copyargv(char ** lp);
+@0x41597c	Toplevel *cqctinit(int gcthread, u64 heapmax, char ** lp);
+@0x4159cb	void cqctfini(Toplevel * top);
+@0x415a0c	void cqctfreeexpr(Expr * e);
+@0x68d4a0	unsigned int basemod[0xe][0x9];
+@0x69c660	HT *filenames;
+@0x69c668	char **loadpath;
+@0x69ca80	char cqctflags[0x100];
+@0x68d3a0	char *cbasename[0xf];
+@0x68d420	char *tkindstr[0xd];
+@0x415a24	int islval(Expr * e);
+@0x415a9d	Expr *rvalblock(Expr * body, unsigned int lfree);
+@0x415b13	Expr *lvalblock(Expr * body);
+@0x415b56	Expr *compile_lval(U * ctx, Expr * e, int needaddr);
+@0x4165b4	Expr *compile_rval(U * ctx, Expr * e, unsigned int lfree);
+@0x41719b	Expr *expandc(U * ctx, Expr * e);
+@0x417631	Expr *expanddot(U * ctx, Expr * e);
+@0x41851b	int isemptyblock(Expr * e);
+@0x418552	Expr *groomc(U * ctx, Expr * e);
+@0x41875b	Expr *compilec(U * ctx, Expr * e);
+@0x4187aa	int docompilec(U * ctx, Expr * e);
+@0x418810	Expr *gentypename(Type * t, Expr *(*recpass)(U *, Expr *), U * ctx);
+@0x419368	void do1tag(void * u, char * k, void * v);
+@0x41942a	void do1sym(void * u, char * k, void * v);
+@0x419649	void do1tid(void * u, char * k, void * v);
+@0x4197bb	void hashdecl(unsigned int kind, Decl * d, HT * sym, HT * tag, HT * tid);
+@0x4199af	Expr *rmenid(Expr * e, HT * enid);
+@0x419aca	void rmenids(Type * t, HT * enid);
+@0x419bc6	Expr *compilens(U * ctx, Expr * e);
+@0x419f61	Expr *compilesizeof(U * ctx, Decl * d);
+@0x41a16c	Expr *compiletypeof(U * ctx, Decl * d);
+@0x41a36f	Expr *compilecast(U * ctx, Expr * e);
+@0x41a60f	Expr *compilecontainer(U * ctx, Expr * e);
+@0x41aad0	int istypeform(Expr * e);
+@0x41ab0a	Expr *compileambig(U * ctx, Expr * e);
+@0x41ada3	Expr *compile0(U * ctx, Expr * e);
+@0x41b038	int docompile0(U * ctx, Expr * e);
+@0x68d6a0	char *cbasector[0xe];
+@0x41b09c	void cwarn(Expr * e, char * fmt, ...);
+@0x41b203	void cerror(U * ctx, Expr * e, char * fmt, ...);
+@0x41b379	Expr *Z1(unsigned int kind, Expr * e1);
+@0x41b3a6	Expr *Z2(unsigned int kind, Expr * e1, Expr * e2);
+@0x41b3d6	Expr *Zif(Expr * cond, Expr * true);
+@0x41b405	Expr *Zifelse(Expr * cond, Expr * true, Expr * false);
+@0x41b437	Expr *Zcons(Expr * hd, Expr * tl);
+@0x41b45b	Expr *Zset(Expr * l, Expr * r);
+@0x41b47f	Expr *Zret(Expr * e);
+@0x41b49b	Expr *Zsizeof(Expr * e);
+@0x41b4b7	Expr *Zxcast(Expr * type, Expr * cval);
+@0x41b4db	Expr *Zbinop(unsigned int op, Expr * x, Expr * y);
+@0x41b500	Expr *Zadd(Expr * x, Expr * y);
+@0x41b524	Expr *Zsub(Expr * x, Expr * y);
+@0x41b548	Expr *Zcall(Expr * fn, unsigned int narg, ...);
+@0x41b6b8	Expr *Zapply(Expr * fn, Expr * args);
+@0x41b6e4	Expr *Zconsts(char * s);
+@0x41b754	Expr *Zuint(Imm val);
+@0x41b770	Expr *Znil(void);
+@0x41b7a1	Expr *Zstr(char * s);
+@0x41b811	Expr *Zcval(Expr * dom, Expr * type, Expr * val);
+@0x41b843	Expr *Zref(Expr * dom, Expr * type, Expr * val);
+@0x41b875	Expr *Zrange(Expr * addr, Expr * sz);
+@0x41b8ab	Expr *Zlocals(unsigned int n, ...);
+@0x41ba2a	Expr *Zargs(unsigned int n, ...);
+@0x41bba9	Expr *Zlambda(Expr * args, Expr * body);
+@0x41bbd8	Expr *Zlambdn(Expr * args, Expr * body, Expr * name);
+@0x41bc0a	Expr *Zblock(Expr * locs, ...);
+@0x41bd99	Expr *Zids2strs(Expr * l);
+@0x41be1c	void newloc(Location * loc, unsigned int kind, unsigned int idx, unsigned int indirect);
+@0x41be4c	Ctl *mklabel(Code * code);
+@0x41be94	void freelabel(Ctl * ctl);
+@0x41bec2	Ctl *genlabel(Code * code, char * s);
+@0x41bf56	Ctl *genlabelpair(Code * code, Ctl * l1, Ctl * l2);
+@0x41bf9f	void emitlabel(Ctl * ctl, Expr * e);
+@0x41c07c	Code *mkcode(void);
+@0x41c141	int freecode(Head * hd);
+@0x41c1df	Insn *nextinsn(Code * code);
+@0x41c2e4	char *itos(ikind kind);
+@0x41c2fa	char *regtos(Reg reg);
+@0x41c310	void printrand(Code * code, Operand * r);
+@0x41c583	void printinsn(Code * code, Insn * i);
+@0x41cb20	void printcode(Code * code);
+@0x41cbdf	unsigned int max(unsigned int x, unsigned int y);
+@0x41cbf5	int issimple(Expr * e);
+@0x41cc33	unsigned int listlen(Expr * l);
+@0x41cc64	unsigned int locpass(Expr * e);
+@0x41cd8c	unsigned int tmppass(Expr * e);
+@0x41cf64	Xenv *mkxenv(Xenv * link);
+@0x41cfa4	void freexenv(Xenv * xe);
+@0x41cfc7	void *xenvlook(Xenv * xe, char * id);
+@0x41d04f	void xenvbind(Xenv * xe, char * id, void * v);
+@0x41d0a0	void xenvforeach(Xenv * xe, void (*f)(void *, char *, void *), void * u);
+@0x41d0ca	long unsigned int xenvsize(Xenv * xe);
+@0x41d0e4	Topvec *mktopvec(void);
+@0x41d14d	void freetopvec(Topvec * tv);
+@0x41d1b1	char *topvecid(unsigned int idx, Topvec * tv);
+@0x41d1f2	Val *topvecval(unsigned int idx, Topvec * tv);
+@0x41d233	int topveclookup(char * id, Topvec * tv);
+@0x41d296	int topvecadd(char * id, Topvec * tv, Env * env);
+@0x41d3af	Konst *mkkonst(void);
+@0x41d3df	Lits *konstlookup(Lits * lits, Konst * kon);
+@0x41d40b	Lits *konstadd(Lits * lits, Konst * kon);
+@0x41d44c	void free1konst(void * u, char * k, void * v);
+@0x41d46b	void freekonst(Konst * kon);
+@0x41d4a4	Konsti *mkkonsti(void);
+@0x41d4d4	Val konsti2val(Cbase base, Imm imm, Konsti * koni);
+@0x41d5c5	Val konstival(Liti * liti, Konsti * koni);
+@0x41d5ee	void free1konsti(void * u, char * k, void * v);
+@0x41d60d	void freekonsti(Konsti * koni);
+@0x41d646	VEnv *mkvenv(void);
+@0x41d662	void freevenv(VEnv * ve);
+@0x41d679	VDset *mkvdset(void);
+@0x41d6c1	void freevdset(VDset * vs);
+@0x41d6e5	void addvdset(Vardef * vd, VDset * vs);
+@0x41d7b6	int lookupvdset(Vardef * vd, VDset * vs);
+@0x41d80c	VRset *mkvrset(unsigned int n);
+@0x41d853	void freevrset(VRset * vs);
+@0x41d877	Lambda *mklambda(Expr * p);
+@0x41da6d	void freelambda(Lambda * b);
+@0x41dac4	unsigned int bindlocal(Lambda * b, Expr * p, unsigned int nloc);
+@0x41dbb3	Varref *mkvarref(Vardef * vd);
+@0x41dbde	Varref *mktoplevelref(char * id, Topvec * tv, Env * env);
+@0x41dc6c	void freevarref(Varref * vr);
+@0x41dca5	void freetype(Type * t);
+@0x41dd56	void freedecl(Decl * d);
+@0x41ddb8	void freeexprx(Expr * e);
+@0x41de3d	Vardef *varlookup(char * id, VEnv * ve);
+@0x41deb7	int vardeflookup(Vardef * vd, VEnv * ve);
+@0x41df20	void mapframe(Expr * e, Lambda * curb, VEnv * ve, Topvec * tv, Env * env, Konst * kon, Konsti * koni, unsigned int ploc);
+@0x41e405	int lexbinds(Expr * e, char * id);
+@0x41e4e0	void newlocal(Expr * e, char * id);
+@0x41e566	Expr *globals(Expr * e, Env * env);
+@0x41e988	void topresolve(Expr * e, Env * env, Expr * lex);
+@0x41eb9a	void freeconst(void * u, char * id, void * v);
+@0x41ebc2	void bindids(Xenv * xe, Expr * e, void * v);
+@0x41ec57	Expr *expandconst(Expr * e, Env * top, Xenv * lex, Xenv * con);
+@0x41efc0	void freevars(Expr * e, VEnv * ve, VDset * fr);
+@0x41f171	void mapcapture(Expr * e, VDset * cap);
+@0x41f387	void printframe(Expr * e);
+@0x41f817	void recswitchctl(Expr * e, Code * code, Cases * cs);
+@0x41fa6f	Cases *switchctl(Expr * e, Code * code);
+@0x41faf1	void freeswitchctl(Cases * cs);
+@0x41fb22	void randloc(Operand * rand, Location * loc);
+@0x41fb59	void randlits(Operand * rand, Lits * lits);
+@0x41fb7d	void randliti(Operand * rand, Val v);
+@0x41fba1	void randnil(Operand * rand);
+@0x41fbb5	void varloc(Location * loc, Expr * eid);
+@0x41fc9b	void randvarloc(Operand * rand, Expr * eid);
+@0x41fcc8	void randrefloc(Operand * rand, Varref * vr);
+@0x41fd85	void randvdloc(Operand * rand, Vardef * vd);
+@0x41fe0e	void randstkloc(Operand * rand, unsigned int kind, unsigned int off, unsigned int indirect);
+@0x41fe61	void cgrand(Operand * rand, Expr * e, CGEnv * p);
+@0x41fefd	void cgjmp(Code * code, CGEnv * p, Ctl * ctl, Ctl * nxt);
+@0x41ff52	int returnlabel(CGEnv * p, Ctl * ctl);
+@0x41ff8f	Expr *escaping(Expr * e);
+@0x420004	Expr *nextstmt(Expr * e);
+@0x42006c	Ctl *escapectl(Expr * e, CGEnv * p);
+@0x4200fc	void cgbranch(Code * code, CGEnv * p, Ctl * ctl, Ctl * nxt);
+@0x420210	void cgctl(Code * code, CGEnv * p, Ctl * ctl, Ctl * nxt);
+@0x42027c	void cgunop(Code * code, CGEnv * p, unsigned int kind, Operand * r1, Location * loc, Ctl * ctl, Ctl * nxt);
+@0x42033b	void cgbinop(Code * code, CGEnv * p, unsigned int kind, Operand * r1, Operand * r2, Location * loc, Ctl * ctl, Ctl * nxt);
+@0x420416	void cg(Expr * e, Code * code, CGEnv * p, Location * loc, Ctl * ctl, Ctl * prv, Ctl * nxt, unsigned int tmp);
+@0x42376d	void compilelambda(Ctl * name, Code * code, Expr * e);
+@0x423c1d	Closure *compileentry(Expr * el, Toplevel * top);
+@0x423e90	Closure *haltthunk(void);
+@0x423f10	Closure *callcc(void);
+@0x42401e	Code *callccode(void);
+@0x424068	Code *contcode(void);
+@0x4240f9	Closure *panicthunk(void);
+@0x424179	void initcompile(void);
+@0x4242b6	void finicompile(void);
+@0x69c6c0	Location toploc[0x8];
+@0x69c780	Location *Effect;
+@0x69c788	Location *AC;
+@0x69c790	Location *FP;
+@0x69c798	Location *SP;
+@0x69c7a0	Location *PC;
+@0x69c7a8	Location *ARG0;
+@0x69c7b0	Location *ARG1;
+@0x69c7b8	Location *ARG2;
+@0x68d8e0	ikind EtoVM[0x65];
+@0x4242bc	Imm stkimm(Val v);
+@0x4242f5	Imm valimm(Val v);
+@0x42432d	Val valboxed(Val v);
+@0x424365	void *read_and_clear(void * pp);
+@0x42439e	void writebarrier(void);
+@0x4243a4	void heapstat(char * s);
+@0x424482	long unsigned int hlen(Head * h);
+@0x4244af	Head *halloc(Heap * heap);
+@0x42472f	void heapfree(Head * p);
+@0x4247b2	void sweepheap(Heap * heap, unsigned int color);
+@0x42484c	void sweep(GC * gc, unsigned int color);
+@0x4248a2	void freeheap(Heap * heap);
+@0x4248e2	Freeheadfn getfreeheadfn(Qkind qkind);
+@0x424904	void setfreeheadfn(Qkind qkind, Freeheadfn free1);
+@0x424931	Head *valhead(Val v);
+@0x42498a	Root *newroot(Rootset * rs);
+@0x4249dd	void freeroot(Rootset * rs, Root * r);
+@0x424a07	void freerootlist(Rootset * rs, Root * r);
+@0x424a43	void freefreeroots(Rootset * rs);
+@0x424a83	void doaddroot(Rootset * rs, Head * h);
+@0x424b20	void atomic_inc(int * p);
+@0x424b35	void addroot(Rootset * rs, Head * h);
+@0x424b72	Head *removeroot(Rootset * rs);
+@0x424c65	void atomic_dec(int * p);
+@0x424c7a	int rootsetempty(Rootset * rs);
+@0x424c9c	void markhead(GC * gc, Head * hd, unsigned int color);
+@0x424d45	void markrs(GC * gc, Rootset * rs, unsigned int color);
+@0x424d80	void mark(GC * gc, unsigned int color);
+@0x424e2f	void bindingroot(void * u, char * k, void * v);
+@0x424e69	void rdroot(void * u, char * k, void * v);
+@0x424e98	void rootset(GC * gc);
+@0x4250b2	void rootsetreset(Rootset * rs);
+@0x4250ff	void gcreset(GC * gc);
+@0x425127	int waitmutator(GC * gc);
+@0x425192	void resumemutator(GC * gc);
+@0x4251cf	void waitgcrun(GC * gc);
+@0x4252a3	void gcwb(GC * gc, Val v);
+@0x4252da	void gcsync(int fd, char t, char r);
+@0x425344	int needsgc(GC * gc);
+@0x4253b8	void concurrentgcpoll(GC * gc);
+@0x425419	void concurrentgckill(GC * gc);
+@0x425462	void *gcchild(void * p);
+@0x425607	void concurrentgc(GC * gc);
+@0x425667	void dogc(GC * gc);
+@0x425785	void gcpoll(GC * gc);
+@0x4257b2	void gckill(GC * gc);
+@0x4257bc	Imm typesize(VM * vm, Xtypename * xtn);
+@0x425997	Head *iterbox(Head * hd, Ictx * ictx);
+@0x4259ea	Head *itercl(Head * hd, Ictx * ictx);
+@0x425a91	Head *itercode(Head * hd, Ictx * ictx);
+@0x425b15	Head *itercval(Head * hd, Ictx * ictx);
+@0x425b7c	Head *iterpair(Head * hd, Ictx * ictx);
+@0x425bf1	Head *iterrange(Head * hd, Ictx * ictx);
+@0x425c58	Head *iterrd(Head * hd, Ictx * ictx);
+@0x425d0a	Code *newcode(void);
+@0x425d1a	Closure *mkcl(Code * code, long unsigned int entry, unsigned int len, char * id);
+@0x425d9c	Closure *mkcfn(char * id, Cfn *cfn);
+@0x425ddc	Closure *mkccl(char * id, Ccl *ccl, unsigned int dlen, ...);
+@0x425f8d	int freecl(Head * hd);
+@0x425fc2	int freefd(Head * hd);
+@0x426006	Fd *mkfd(Str * name, int xfd, int flags, void (*close)(Fd *));
+@0x42605c	Head *iterfd(Head * hd, Ictx * ictx);
+@0x4260ab	int eqval(Val v1, Val v2);
+@0x4260f9	u32 hash6432shift(u64 key);
+@0x42616a	u32 hashptr32shift(void * p);
+@0x426250	u32 nohash(Val val);
+@0x426271	u32 hashptr(Val val);
+@0x426290	int eqptr(Val a, Val b);
+@0x4262c6	u32 hashconst(Val val);
+@0x42631f	int eqtrue(Val a, Val b);
+@0x426332	u32 hashcval(Val val);
+@0x426355	int eqcval(Val a, Val b);
+@0x42638c	u32 hashrange(Val val);
+@0x4263ce	int eqrange(Val a, Val b);
+@0x426439	u32 hashstr(Val val);
+@0x426464	int eqstrc(Str * a, char * b);
+@0x426501	int eqstr(Str * a, Str * b);
+@0x426585	int eqstrv(Val a, Val b);
+@0x4265a4	u32 hashxtn(Val val);
+@0x426810	int eqxtn(Xtypename * a, Xtypename * b);
+@0x426b1e	int eqxtnv(Val a, Val b);
+@0x426b3d	Str *mkstr0(char * s);
+@0x426bca	Str *mkstr(char * s, Imm len);
+@0x426c3a	Str *mkstrk(char * s, Imm len, Skind skind);
+@0x426c95	Str *mkstrn(VM * vm, Imm len);
+@0x426d8b	Str *mkstrlits(Lits * lits);
+@0x426dae	char *str2cstr(Str * str);
+@0x426df2	Str *strslice(Str * str, Imm beg, Imm end);
+@0x426e2b	int freestr(Head * hd);
+@0x426e82	int listlenpair(Val v, Imm * rv);
+@0x426f5d	Vec *mkvec(Imm len);
+@0x426fa5	Vec *mkvecinit(Imm len, Val v);
+@0x426ffb	Val vecref(Vec * vec, Imm idx);
+@0x427020	void _vecset(Vec * vec, Imm idx, Val v);
+@0x42704c	void vecset(VM * vm, Vec * vec, Imm idx, Val v);
+@0x42709a	Vec *veccopy(Vec * old);
+@0x4270e6	Head *itervec(Head * hd, Ictx * ictx);
+@0x427157	int freevec(Head * hd);
+@0x42717f	Tabx *mktabx(u32 sz);
+@0x427226	void freetabx(Tabx * x);
+@0x427264	Tab *_mktab(Tabx * x);
+@0x427290	Tab *mktab(void);
+@0x4272a8	Head *itertab(Head * hd, Ictx * ictx);
+@0x4273a7	int freetab(Head * hd);
+@0x427430	Tabidx *_tabget(Tab * tab, Val keyv, Tabidx *** prev);
+@0x427534	Val tabget(Tab * tab, Val keyv);
+@0x427594	void tabexpand(Tab * tab);
+@0x42774c	void dotabput(VM * vm, Tab * tab, Val keyv, Val val);
+@0x4278d6	void _tabput(Tab * tab, Val keyv, Val val);
+@0x427902	void tabput(VM * vm, Tab * tab, Val keyv, Val val);
+@0x427931	void tabdel(VM * vm, Tab * tab, Val keyv);
+@0x427a2c	Vec *tabenum(Tab * tab);
+@0x427b25	Vec *tabenumkeys(Tab * tab);
+@0x427be1	Vec *tabenumvals(Tab * tab);
+@0x427c9d	u32 listxlen(Listx * x);
+@0x427cba	Listx *mklistx(u32 sz);
+@0x427d1f	List *_mklist(Listx * x);
+@0x427d4b	List *mklist(void);
+@0x427d63	List *mklistinit(Imm len, Val v);
+@0x427db6	void freelistx(Listx * x);
+@0x427de7	int freelist(Head * hd);
+@0x427e0f	void listxaddroots(Listx * x, u32 idx, u32 n);
+@0x427e5c	Val listref(VM * vm, List * lst, Imm idx);
+@0x427ec1	List *listset(VM * vm, List * lst, Imm idx, Val v);
+@0x427f45	List *listcopy(List * lst);
+@0x427ff9	List *listreverse(List * lst);
+@0x4280b9	Val listhead(VM * vm, List * lst);
+@0x428112	void listpop(VM * vm, List * lst, Val * vp);
+@0x4281b9	List *listtail(VM * vm, List * lst);
+@0x42820f	int equallist(List * a, List * b);
+@0x4282c9	int equallistv(Val a, Val b);
+@0x4282e8	void listexpand(List * lst);
+@0x4283c6	Listx *maybelistexpand(List * lst);
+@0x42840f	void slide(Listx * x, u32 idx, int op);
+@0x428590	List *listdel(VM * vm, List * lst, Imm idx);
+@0x428648	List *listins(VM * vm, List * lst, Imm idx, Val v);
+@0x42877c	void _listappend(List * lst, Val v);
+@0x4287dc	List *listpush(VM * vm, List * lst, Val v);
+@0x428808	List *listappend(VM * vm, List * lst, Val v);
+@0x42883e	Head *iterlist(Head * hd, Ictx * ictx);
+@0x4288d8	Rec *mkrec(Rd * rd);
+@0x428934	Head *iterrec(Head * hd, Ictx * ictx);
+@0x4289d2	int freerec(Head * hd);
+@0x4289fa	void recis(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x428acb	void recmk(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x428b98	void recfmt(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x428cad	void recget(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x428e56	void recset(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42903b	Rd *mkrd(VM * vm, Str * name, List * fname, Closure * fmt);
+@0x429585	Xtypename *mkxtn(void);
+@0x4295a1	Head *iterxtn(Head * hd, Ictx * ictx);
+@0x429948	char *fmtplist(Vec * param);
+@0x429b60	char *_fmtxtn(Xtypename * xtn, char * o);
+@0x42a128	char *_fmtdecl(Xtypename * xtn, Str * id);
+@0x42a1b6	Str *fmtxtn(Xtypename * xtn);
+@0x42a1f8	As *mkas(Closure * dispatch, Str * name);
+@0x42a234	Head *iteras(Head * hd, Ictx * ictx);
+@0x42a29b	Dom *mkdom(Ns * ns, As * as, Str * name);
+@0x42a2e7	Head *iterdom(Head * hd, Ictx * ictx);
+@0x42a363	Ns *mkns(void);
+@0x42a37f	Head *iterns(Head * hd, Ictx * ictx);
+@0x42a43d	Env *mkenv(void);
+@0x42a497	int envbinds(Env * env, char * id);
+@0x42a4f8	Val *envgetbind(Env * env, char * id);
+@0x42a5b7	void envbind(Env * env, char * id, Val val);
+@0x42a5e9	int envlookup(Env * env, char * id, Val * val);
+@0x42a63e	void freebinding(void * u, char * id, void * v);
+@0x42a666	void freerd(void * u, char * id, void * v);
+@0x42a685	void freeenv(Env * env);
+@0x42a706	Toplevel *mktoplevel(void);
+@0x42a736	void freetoplevel(Toplevel * top);
+@0x42a759	Cval *mkcval(Dom * dom, Xtypename * type, Imm val);
+@0x42a7a5	Cval *mklitcval(Cbase base, Imm val);
+@0x42a7de	Val mkvalcval(Dom * dom, Xtypename * t, Imm imm);
+@0x42a805	Val mkvallitcval(Cbase base, Imm imm);
+@0x42a822	Val mkvalimm(Dom * dom, Xtypename * t, Imm imm);
+@0x42a849	Val mkvalcval2(Cval * cv);
+@0x42a857	Val mkvalcl(Closure * cl);
+@0x42a865	Val mkvalbox(Val boxed);
+@0x42a891	Val mkvalas(As * as);
+@0x42a89f	Val mkvaldom(Dom * dom);
+@0x42a8ad	Val mkvalfd(Fd * fd);
+@0x42a8bb	Val mkvallist(List * lst);
+@0x42a8c9	Val mkvalns(Ns * ns);
+@0x42a8d7	Val mkvalpair(Val car, Val cdr);
+@0x42a913	Val mkvalrec(Rec * rec);
+@0x42a921	Val mkvalrd(Rd * desc);
+@0x42a92f	Val mkvalstr(Str * str);
+@0x42a93d	Val mkvaltab(Tab * tab);
+@0x42a94b	Val mkvalvec(Vec * vec);
+@0x42a959	Range *mkrange(Cval * beg, Cval * len);
+@0x42a995	Val mkvalrange(Cval * beg, Cval * len);
+@0x42a9bc	Val mkvalrange2(Range * r);
+@0x42a9ca	Val mkvalxtn(Xtypename * xtn);
+@0x42a9d8	int zeroval(Val v);
+@0x42aa23	void putbox(VM * vm, Val box, Val boxed);
+@0x42aa61	void putval(VM * vm, Val v, Location * loc);
+@0x42ac99	void printsrc(FILE * out, Closure * cl, Imm pc);
+@0x42ade8	void fvmbacktrace(FILE * out, VM * vm);
+@0x42aef6	void vmbacktrace(VM * vm);
+@0x42af12	void vmerr(VM * vm, char * fmt, ...);
+@0x42b01a	Val getval(VM * vm, Location * loc);
+@0x42b2a8	Cval *getcval(VM * vm, Location * loc);
+@0x42b526	Val getvalrand(VM * vm, Operand * r);
+@0x42b5b3	Cval *getcvalrand(VM * vm, Operand * r);
+@0x42b614	void putvalrand(VM * vm, Val v, Operand * r);
+@0x42b658	void putcvalrand(VM * vm, Cval * cv, Operand * r);
+@0x42b6ad	Imm getbeint(char * s, unsigned int nb);
+@0x42b6f7	int cval2int(Cval * cv);
+@0x42b7b7	Imm str2imm(Xtypename * xtn, Str * str);
+@0x42b985	void putbeint(char * p, Imm w, unsigned int nb);
+@0x42b9c2	Str *imm2str(VM * vm, Xtypename * xtn, Imm imm);
+@0x42bdce	Imm rerep(Imm val, Xtypename * old, Xtypename * new);
+@0x42cd70	Cval *typecast(VM * vm, Xtypename * xtn, Cval * cv);
+@0x42cdb3	Cval *domcast(VM * vm, Dom * dom, Cval * cv);
+@0x42ce8d	void dompromote(VM * vm, ikind op, Cval * op1, Cval * op2, Cval ** rv1, Cval ** rv2);
+@0x42d071	Cval *intpromote(VM * vm, Cval * cv);
+@0x42d101	Xtypename *commontype(Xtypename * t1, Xtypename * t2);
+@0x42d19d	void usualconvs(VM * vm, Cval * op1, Cval * op2, Cval ** rv1, Cval ** rv2);
+@0x42d4dc	void xcallc(VM * vm);
+@0x42d5e5	int Strcmp(Str * s1, Str * s2);
+@0x42d6a7	Imm binopstr(VM * vm, ikind op, Str * s1, Str * s2);
+@0x42d7c4	void xunop(VM * vm, ikind op, Operand * op1, Operand * dst);
+@0x42d8bd	Imm truncimm(Imm v, Rkind rep);
+@0x42d956	Cval *xcvalptralu(VM * vm, ikind op, Cval * op1, Cval * op2, Xtypename * t1, Xtypename * t2);
+@0x42dbed	Cval *xcvalalu(VM * vm, ikind op, Cval * op1, Cval * op2);
+@0x42ddea	Cval *xcvalshift(VM * vm, ikind op, Cval * op1, Cval * op2);
+@0x42de9f	Cval *xcvalcmp(VM * vm, ikind op, Cval * op1, Cval * op2);
+@0x42e0c1	void xbinop(VM * vm, ikind op, Operand * op1, Operand * op2, Operand * dst);
+@0x42e3a4	void xclo(VM * vm, Operand * dl, Ctl * label, Operand * dst);
+@0x42e489	void xkg(VM * vm, Operand * dst);
+@0x42e531	void xkp(VM * vm);
+@0x42e5b4	void xmov(VM * vm, Operand * src, Operand * dst);
+@0x42e5ec	void xjnz(VM * vm, Operand * src, Ctl * label);
+@0x42e633	void xjz(VM * vm, Operand * src, Ctl * label);
+@0x42e67a	void checkoverflow(VM * vm, unsigned int dec);
+@0x42e6ad	void vmpush(VM * vm, Val v);
+@0x42e6fe	void vmpushi(VM * vm, Imm imm);
+@0x42e75e	void vmpop(VM * vm, unsigned int n);
+@0x42e787	void xpush(VM * vm, Operand * op);
+@0x42e7b7	void xpushi(VM * vm, Operand * op);
+@0x42e7f3	void xbox(VM * vm, Operand * op);
+@0x42e82f	void xbox0(VM * vm, Operand * op);
+@0x42e85d	void xref(VM * vm, Operand * dom, Operand * type, Operand * cval, Operand * dst);
+@0x42e9f8	int dobitfieldgeom(Cval * addr, Xtypename * b, BFgeom * bfg);
+@0x42ea89	void xcval(VM * vm, Operand * dom, Operand * type, Operand * cval, Operand * dst);
+@0x42ef10	int iscvaltype(Xtypename * t);
+@0x42ef3b	void xxcast(VM * vm, Operand * typeordom, Operand * cval, Operand * dst);
+@0x42f045	void xlist(VM * vm, Operand * op, Operand * dst);
+@0x42f0f4	void xsizeof(VM * vm, Operand * op, Operand * dst);
+@0x42f1b0	void nilfn(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x42f1c6	void enumsym(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42f20c	void enumtype(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42f252	void nasdispatch(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x42f30b	As *mknas(void);
+@0x42f34a	void sasdispatch(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42f73a	As *mksas(Str * s);
+@0x42f77a	As *mkzas(VM * vm, Imm len);
+@0x42f7a1	Xtypename *chasetype(Xtypename * xtn);
+@0x42f7e6	Xtypename *_dolooktype(VM * vm, Xtypename * xtn, Ns * ns);
+@0x42fba6	Xtypename *dolooktype(VM * vm, Xtypename * xtn, Ns * ns);
+@0x42fc15	void nscache1base(VM * vm, Ns * ns, Cbase cb);
+@0x42fc89	void nscachebase(VM * vm, Ns * ns);
+@0x42fcd0	void looksym(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42fd5a	void looktype(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42fde4	void lookaddr(VM * vm, Imm argc, Val * argv, Val * disp, Val * rv);
+@0x42ff79	Xtypename *resolvetid(VM * vm, Val xtnv, NSctx * ctx);
+@0x4300cc	Xtypename *doenconsts(VM * vm, Vec * v, Ns * ns);
+@0x430217	Xtypename *resolvetag(VM * vm, Val xtnv, NSctx * ctx);
+@0x4305da	Xtypename *resolvebase(VM * vm, Val xtnv, NSctx * ctx);
+@0x430685	Xtypename *resolvetypename(VM * vm, Xtypename * xtn, NSctx * ctx);
+@0x430a6f	Ns *mknsfn(Closure * looktype, Closure * enumtype, Closure * looksym, Closure * enumsym, Closure * lookaddr, Str * name);
+@0x430aeb	Ns *mknstype(Tab * type, Str * name);
+@0x430bcc	void symcmp(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x430c94	Ns *mknstypesym(VM * vm, Tab * type, Tab * sym, Str * name);
+@0x430ec4	Ns *mknstab(VM * vm, Ns * ons, Tab * rawtype, Tab * rawsym, Str * name);
+@0x43170d	char *myroot(void);
+@0x431788	Dom *mksysdom(VM * vm);
+@0x4319a7	void vmsetcl(VM * vm, Val val);
+@0x431a77	jmp_buf *_pusherror(VM * vm);
+@0x431b79	void nexterror(VM * vm);
+@0x431c1d	void poperror(VM * vm);
+@0x431c5f	void gcprotpush(VM * vm);
+@0x431cfb	void gcprotpop(VM * vm);
+@0x431d7e	void gcunprotect(VM * vm, Val v);
+@0x431e13	void *gcprotect(VM * vm, void * obj);
+@0x431eb6	void cqctgcprotect(VM * vm, Val v);
+@0x431ed5	void cqctgcunprotect(VM * vm, Val v);
+@0x431ef4	void builtinnil(Env * env, char * name);
+@0x431f1a	void builtinfn(Env * env, char * name, Closure * cl);
+@0x431f4e	void builtinns(Env * env, char * name, Ns * ns);
+@0x431f82	void builtindom(Env * env, char * name, Dom * dom);
+@0x431fb6	void builtincval(Env * env, char * name, Cval * cv);
+@0x431fea	void builtinfd(Env * env, char * name, Fd * fd);
+@0x43201e	void vmresetctl(VM * vm);
+@0x4320ac	void vmresettop(VM * vm);
+@0x43227e	Fd *vmstdout(VM * vm);
+@0x432293	Val dovm(VM * vm, Closure * cl, Imm argc, Val * argv);
+@0x432cd8	void checkarg(VM * vm, char * fn, Val * argv, unsigned int arg, Qkind qkind);
+@0x432d37	int isbasecval(Cval * cv);
+@0x432d75	int isnegcval(Cval * cv);
+@0x432dd8	int isnatcval(Cval * cv);
+@0x432e3e	int iszerocval(Cval * cv);
+@0x432e59	int docmp(VM * vm, Val a, Val b, Closure * cmp);
+@0x432f19	void doswap(VM * vm, Val * vs, Imm i, Imm j);
+@0x432fb3	void dosort(VM * vm, Val * vs, Imm n, Closure * cmp);
+@0x4330fb	void l1_sort(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x433234	Val dobsearch(VM * vm, Val key, Val * vs, Imm n, Closure * cmp);
+@0x433327	void l1_bsearch(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x433481	void l1_looktype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43356d	void l1_domof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4335e9	int isstrcval(Cval * cv);
+@0x43366e	Vec *callmap(VM * vm, As * as);
+@0x4336e1	Range *mapstab(VM * vm, Vec * map, Imm addr, Imm len);
+@0x4337b0	Str *stringof(VM * vm, Cval * cv);
+@0x433a6b	int ismapped(VM * vm, Cval * addr, Cval * len);
+@0x433b37	int fmtputc(Fmt * f, char ch);
+@0x433b9e	int fmtpad(Fmt * f, int n);
+@0x433c03	int fmtputs(Fmt * f, char * p, Imm m);
+@0x433d40	int fmtputs0(Fmt * f, char * p);
+@0x433d84	int fmtval(VM * vm, Fmt * f, Val val);
+@0x43453f	int fmticval(Fmt * f, unsigned char conv, Cval * cv);
+@0x4348e6	int fmtenconst(Fmt * f, Cval * cv);
+@0x4349f2	void dofmt(VM * vm, Fmt * f, char * fmt, Imm fmtlen, Imm argc, Val * argv);
+@0x4352f6	int fmtstrflush(Fmt * f);
+@0x435396	Str *dovsprinta(VM * vm, char * fmt, Imm fmtlen, Imm argc, Val * argv);
+@0x435460	void l1_sprintfa(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435506	void l1_backtrace(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435543	void l1_tabkeys(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4355bb	void l1_tabvals(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435633	void dotypepredicate(VM * vm, Imm argc, Val * argv, Val * rv, char * id, unsigned int kind);
+@0x4356dd	void l1_isvoid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435718	void l1_isxaccess(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435753	void l1_isundeftype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43578e	void l1_isbase(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4357c9	void l1_isstruct(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435804	void l1_isunion(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43583f	void l1_issu(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4358e5	void l1_isenum(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435920	void l1_isenumconst(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43595b	void l1_isbitfield(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435996	void l1_isptr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4359d1	void l1_isarray(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435a0c	void l1_isfunc(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435a47	void l1_istypedef(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435a82	void l1_baseid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435b29	void l1_subtype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435c0c	void l1_rettype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435ca2	void l1_suekind(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435d61	void l1_suetag(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435e0f	void l1_susize(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435ea9	void l1_bitfieldwidth(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435f37	void l1_bitfieldcontainer(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x435fcd	void l1_bitfieldpos(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43605b	void l1_xaccessget(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4360f4	void l1_xaccessput(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43618d	void l1_arraynelm(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43621b	void l1_typedefid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4362b1	void l1_typedeftype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436354	void l1_params(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4363ea	void l1_paramtype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4364a9	void l1_paramid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436577	void l1_fields(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436626	void l1_lookfield(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436751	void l1_fieldtype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436810	void l1_fieldid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4368de	void l1_fieldoff(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4369ac	void l1_enumconsts(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436a70	void l1_symtype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436b2f	void l1_symid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436bfd	void l1_symval(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436ccb	void l1_typeof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436d97	void l1_mkctype_void(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436de7	void domkctype_base(Cbase name, Val * rv);
+@0x436e1c	void l1_mkctype_char(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436e5e	void l1_mkctype_short(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436ea0	void l1_mkctype_int(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436ee2	void l1_mkctype_long(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436f24	void l1_mkctype_vlong(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436f66	void l1_mkctype_uchar(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436fa8	void l1_mkctype_ushort(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x436fea	void l1_mkctype_uint(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43702c	void l1_mkctype_ulong(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43706e	void l1_mkctype_uvlong(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4370b0	void l1_mkctype_float(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4370f2	void l1_mkctype_double(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437134	void l1_mkctype_ldouble(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437176	void l1_mkctype_ptr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4372b6	void l1_mkctype_typedef(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4373ea	int issymvec(Vec * v);
+@0x437517	void domkctype_su(VM * vm, char * fn, Tkind tkind, Imm argc, Val * argv, Val * rv);
+@0x4376b3	void l1_mkctype_struct(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4376f2	void l1_mkctype_union(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437731	void l1_mkctype_array(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43786c	void l1_mkctype_fn(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437958	void l1_mkctype_bitfield(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437a4c	void l1_mkctype_enum(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437c62	void l1_mkctype_const(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437cf6	void l1_mkctype_xaccess(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437df1	void mksymorfieldorparam(char * what, VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437f34	void l1_mksym(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437f8c	void l1_mkfield(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x437fe4	void l1_mkparam(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43803c	void l1_isnil(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4380ac	void l1_error(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438109	void l1_fault(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438134	void l1_strput(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43826b	void l1_put(VM * vm, Imm argc, Val * iargv, Val * rv);
+@0x4387fc	void l1_foreach(VM * vm, Imm argc, Val * iargv, Val * rv);
+@0x438a39	void l1_close(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438ad1	void l1_fdname(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438b44	void l1_mknas(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438b99	void l1_mksas(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438c15	void l1_mkzas(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438cc9	void l1_mkas(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438d8b	void l1_mknsraw(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x438eb4	void l1_mkns(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439033	void l1_mkdom(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439125	void l1_nameof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4391fb	void l1_asof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43929b	void l1_nsof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43933b	void l1_asdispatch(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4393e3	void l1_nslookaddr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43948b	void l1_nslooksym(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439533	void l1_nslooktype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4395db	void l1_nsenumsym(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439683	void l1_nsenumtype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43972b	void l1_nsptr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4397d6	void l1_mkrange(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43986b	void l1_rangebeg(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4398de	void l1_rangelen(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439951	void l1_mkstr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4399f0	void l1_strlen(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439a80	void l1_substr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439bd7	void l1_strref(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439cd6	void l1_strstr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439dc0	void l1_stringof(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439e62	void l1_strton(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439f2d	void l1_mkvec(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x439ff6	void l1_vector(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a065	void l1_veclen(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a0f5	void l1_vecref(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a1e5	void l1_vecset(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a2d5	void l1_mktab(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a325	void l1_tabdelete(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a399	void l1_tablook(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a41f	void l1_tabinsert(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a49e	void l1_tabenum(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a515	void l1_ismapped(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43a5f6	Str *getbytes(VM * vm, Cval * addr, Imm n);
+@0x43a6ea	void l1_getbytes(VM * vm, Imm iargc, Val * iargv, Val * rv);
+@0x43a7f6	void l1_putbytes(VM * vm, Imm iargc, Val * iargv, Val * rv);
+@0x43a977	void l1_apply(VM * vm, Imm iargc, Val * iargv, Val * rv);
+@0x43aaee	void l1_isempty(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ab8f	void l1_length(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ac9c	void l1_null(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43acde	void l1_car(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ad49	void l1_cdr(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43adb4	void l1_cons(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ae09	void l1_list(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ae79	void l1_mklist(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43af42	void l1_listref(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b00e	void l1_listdel(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b0dd	void l1_listset(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b1bc	void l1_listins(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b296	void l1_pop(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b2fe	void l1_head(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b371	void l1_tail(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b3ec	void l1_push(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b472	void l1_append(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b4f8	void l1_reverse(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b570	void l1_copy(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b619	void l1_recrd(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b68c	void l1_mkrd(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b7d8	void l1_rdname(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b84b	void l1_rdis(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b8be	void l1_rdmk(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b931	void l1_rdfmt(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43b9a4	void l1_rdsetfmt(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43ba38	void l1_rdfields(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43baab	void l1_rdgettab(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bb1e	void l1_rdsettab(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bb91	void l1_equal(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bc5f	void l1_isx(VM * vm, Imm argc, Val * argv, Val * rv, char * name, Qkind kind);
+@0x43bcdb	void l1_isas(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bd16	void l1_isctype(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bd51	void l1_iscvalue(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bd8c	void l1_isdomain(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bdc7	void l1_isfd(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43be02	void l1_islist(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43be3d	void l1_isns(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43be78	void l1_isnull(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43beb3	void l1_ispair(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43beee	void l1_isprocedure(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bf29	void l1_isrange(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bf64	void l1_isrec(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bf9f	void l1_isrd(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43bfda	void l1_isstring(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c015	void l1_istable(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c050	void l1_isvector(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c08b	void l1_gc(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c0dd	void l1_meminuse(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c112	void l1_memtotal(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c147	void l1_heapstat(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c1ca	void l1_eval(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c27d	void l1_resettop(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43c2f1	char *cqctsprintval(VM * vm, Val v);
+@0x43c352	Xtypename *mkvoidxtn(void);
+@0x43c379	Xtypename *mkundefxtn(Xtypename * t);
+@0x43c3b0	Xtypename *mkbasextn(Cbase name, Rkind rep);
+@0x43c3f1	Xtypename *mkptrxtn(Xtypename * t, Rkind rep);
+@0x43c435	Xtypename *mkconstxtn(Xtypename * t);
+@0x43c46c	Xtypename *mktypedefxtn(Str * tid, Xtypename * t);
+@0x43c4b3	Tab *basetab(NSroot * def, Xtypename ** base);
+@0x43c938	Ns *mkrootns(NSroot * def);
+@0x43ca2d	Dom *mklitdom(void);
+@0x43caa7	Env *mktopenv(void);
+@0x43e333	VM *cqctmkvm(Toplevel * top);
+@0x43e436	void cqctfreevm(VM * vm);
+@0x43e4ba	void vmfaulthook(void);
+@0x43e520	void initvm(int gcthread, u64 heapmax);
+@0x43e687	void finivm(void);
+@0x43e794	int cqctcallfn(VM * vm, Closure * cl, int argc, Val * argv, Val * rv);
+@0x43e80c	int cqctcallthunk(VM * vm, Closure * cl, Val * rv);
+@0x43e87d	int8_t cqctvalint8(Val v);
+@0x43e904	int16_t cqctvalint16(Val v);
+@0x43e989	int32_t cqctvalint32(Val v);
+@0x43ea0d	int64_t cqctvalint64(Val v);
+@0x43ea94	uint8_t cqctvaluint8(Val v);
+@0x43eb1b	uint16_t cqctvaluint16(Val v);
+@0x43eba2	uint32_t cqctvaluint32(Val v);
+@0x43ec26	uint64_t cqctvaluint64(Val v);
+@0x43ecad	char *cqctvalcstr(Val v);
+@0x43ece1	Val cqctcstrval(char * s);
+@0x43ed00	Val cqctint8val(int8_t x);
+@0x43ed1e	Val cqctint16val(int16_t x);
+@0x43ed3c	Val cqctint32val(int32_t x);
+@0x43ed5a	Val cqctint64val(int64_t x);
+@0x43ed77	Val cqctuint8val(uint8_t x);
+@0x43ed94	Val cqctuint16val(uint16_t x);
+@0x43edb1	Val cqctuint32val(uint32_t x);
+@0x43edcc	Val cqctuint64val(uint64_t x);
+@0x43ede9	void cqctfreecstr(char * s);
+@0x68da80	char *qname[0x14];
+@0x68db20	Imm repsize[0x11];
+@0x68dbc0	unsigned int isunsigned[0xe];
+@0x68dc00	unsigned int isbigendian[0x11];
+@0x69c868	Head *GCiterdone;
+@0x68dc48	long long unsigned int nextgctick;
+@0x69c870	struct GC *thegc;
+@0x69c878	Val Xundef;
+@0x69c880	Val Xnil;
+@0x69c888	Val Xnulllist;
+@0x69c890	Dom *litdom;
+@0x69c898	Ns *litns;
+@0x69c8a0	Xtypename **litbase;
+@0x69c8a8	Cval *cvalnull;
+@0x69c8b0	Cval *cval0;
+@0x69c8b8	Cval *cval1;
+@0x69c8c0	Cval *cvalminus1;
+@0x69c8c8	long long unsigned int tick;
+@0x68dc50	long unsigned int gcepoch;
+@0x68dde0	Heap heap[0x14];
+@0x68e560	Hashop hashop[0x14];
+@0x69c8d0	Code *kcode;
+@0x69c8d8	Code *cccode;
+@0x69c8e0	void *gotab[0x2d];
+@0x697060	NSroot c32le;
+@0x6970e0	NSroot c32be;
+@0x697160	NSroot c64le;
+@0x6971e0	NSroot c64be;
+@0x697260	NSroot clp64le;
+@0x6972e0	NSroot clp64be;
+@0x69cb80	VM *vms[0x400];
+@0x43ee00	void fns(Env * env);
+@0x43ee34	void l1__readdir(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43efcb	void l1_mkdir(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f076	void l1_unlink(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f11c	void l1_rmdir(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f1c2	void fnfs(Env * env);
+@0x43f250	void fdclose(Fd * fd);
+@0x43f26a	int fmtfdflush(Fmt * f);
+@0x43f2fc	void dofdprint(VM * vm, Fd * fd, char * fmt, Imm fmtlen, Imm argc, Val * argv);
+@0x43f3cb	void l1_printf(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f47e	void l1_print(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f4fa	void l1_fprintf(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f5cd	void l1_mapfile(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f7ba	void l1_open(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43f985	void l1_read(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43fac1	void l1_write(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43fbb1	void l1_popen(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x43fd1d	void fnio(Env * env);
+@0x43fe2c	int parseaddr(char * s, struct in_addr * addr);
+@0x43fe78	int parseport(char * s, short unsigned int * port);
+@0x43ff05	int parseip(char * s, struct sockaddr_in * addr);
+@0x440019	void nodelay(int fd);
+@0x440063	void l1_opentcp(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4401b6	void fnnet(Env * env);
+@0x4401e4	void l1_getpid(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x44021a	void l1_gettimeofday(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x440279	void l1_randseed(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4402ed	void l1_rand(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4403d8	void profsample(VM * vm);
+@0x440482	Tab *dotrs(VM * vm);
+@0x440719	void doprof(void);
+@0x440758	int deferfree(Head * hd);
+@0x440808	void initprof(void);
+@0x44089a	void finiprof(void);
+@0x44099d	void l1_profon(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x4409f6	void l1_profoff(VM * vm, Imm argc, Val * argv, Val * rv);
+@0x440a6a	void fnsys(Env * env);
+@0x69ca48	Profiler *prof;
+@0x440b38	Imm xread(int fd, char * p, Imm len);
+@0x440bd3	char *readfile(char * filename);
+@0x440c78	Imm xwrite(int fd, char * p, Imm len);
+@0x440d0e	void xvprintf(char * fmt, struct __va_list_tag * args);
+@0x440d40	void xprintf(char * fmt, ...);
+@0x440e1e	void xabort(void);
+@0x440e27	void newchan(int * left, int * right);
+@0x440e76	void chanclose(int c);
+@0x440e8b	int chanreadb(int c, char * b);
+@0x440ec5	int chanwriteb(int c, char * b);
+@0x440eff	Thread newthread(void *(*fn)(void *), void * arg);
+@0x440f41	void threadinit(void);
+@0x440f67	void threadexit(void * vp);
+@0x440f7c	void threadwait(Thread t);
+@0x440f98	void setproftimer(u32 usec, void (*fn)());
+@0x44103a	int xpopen(Imm argc, char ** argv);
+@0x4410bc	void usage(char * argv0);
+@0x441592	int main(int argc, char ** argv);

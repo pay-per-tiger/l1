@@ -1,0 +1,377 @@
+
+
+
+//the beginnings of a regular expression library
+//currently very limited
+
+@global re_defined;
+
+//@record regular_expression{ dfa };
+@global regular_expression;
+regular_expression = @lambda(dfa) {
+	return [ 'dfa: dfa ];
+};
+@global isregular_expression;
+isregular_expression = @lambda(v) {
+	if(istable(v) && v.dfa)
+		return 1;
+	else
+		return 0;
+};
+
+if (re_defined == nil) {
+@local tokenize, node_str;
+@local nxt_nodes, dfa_match, dfa_match_helper;
+@local max_depth, debug;
+@global re_find, re_match, re_create, re_findend, re_findrange;
+
+re_defined = 1;
+
+debug = 0;
+
+@define tokenize(re) {
+    @local tokens, len, i;
+    tokens = [];
+    len = length(re);
+    for(i=0; i<len; ++i) {
+        switch(re[i]) {
+        case '\\':
+            append(tokens,['chr,re[i+1],nil]);
+            ++i;
+            break;
+        case '(':
+            {
+                @local sub,idx;
+                for(idx=i+1;idx<len;++idx)
+                    if (re[idx] == ')') break;
+                sub = tokenize(substr(re,i+1,idx));
+                append(tokens,['sub,sub]);
+                i = idx;
+                break;
+            }
+        case '[':
+            {
+                @local sub,idx,type,last;
+                sub = [:];
+                last = nil;
+                if (length(re) <= i+1) {
+                    error("Invalid regular expression: %s",re);
+                }
+                if (re[i+1] == '^') {
+                  idx = i+2;
+                  type = 'notclass;
+                } else {
+                  idx = i+1;
+                  type = 'class;
+                }
+                for(;idx<len;++idx) {
+                    if (re[idx] == ']') break;
+                    if (re[idx] == '-' && last != nil &&
+                        idx+1<len && re[idx+1] != ']')
+                    {
+                      @local x;
+                      if (re[idx+1] >= last)
+                        for(x=last; x<=re[idx+1]; ++x)
+                          sub[x] = 1;
+                      else
+                        for(x=re[idx+1]; x<=last; ++x)
+                          sub[x] = 1;
+                      last = nil;
+                      ++idx;
+                    } else {
+                      sub[re[idx]] = 1;
+                      last = re[idx];
+                    }
+                }
+                if (length(sub) != 0) append(tokens,[type,sub,nil]);
+                i = idx;
+                break;
+            }
+        case '|':
+            append(tokens,['or,nil]);
+            break;
+        case '*':
+            append(tokens,['star,nil]);
+            break;
+        case '?':
+            append(tokens,['maybe,nil]);
+            break;
+        case '.':
+            append(tokens,['any,nil]);
+            break;
+        default:
+            append(tokens,['chr,re[i],nil]);
+        }
+    }
+    return tokens;
+}
+
+@define re_create(re) {
+    @local tokens,fixup;
+    tokens = tokenize(re);
+    //printf("tokens = %a\n",tokens);
+    fixup = @lambda(lst,par_nxt) {
+        @local i,len,t;
+        len = length(lst);
+        if (debug) printf("FIXUP %a\n",lst);
+        for(i=0; i<len;++i) {
+            t = head(lst[i]);
+            if (debug) printf("at %d with %a (length: %d) %a\n",i,t,len,lst);
+            switch(t) {
+            case 'or:
+                if (lst[i][1] != nil) {
+                  if (lst[i][2] == nil)
+                    error("Badly formed re: %s",re);
+                } else if (i == 0) {
+                  error("Badly formed re: %s",re);
+                } else {
+                  lst[i-1] = ['or,lst[i-1], lst[i+1]];
+                  listdel(lst,i);
+                  listdel(lst,i);//previous i+1
+                  len -= 2;
+                  --i; //only move back 1
+                }
+                break;
+            case 'star:
+                if (lst[i-1][0] != 'star)
+                    lst[i-1] = ['star,lst[i-1],nil];
+                listdel(lst,i);
+                --len;
+                --i; //only move back 1
+                break;
+            case 'maybe:
+                if (lst[i-1][0] != 'maybe)
+                    lst[i-1] = ['maybe,lst[i-1],nil];
+                listdel(lst,i);
+                --len;
+                --i; //only move back 1
+                break;
+            }
+        }
+        //printf("here: %a\n",lst);
+        //printf("lst: %a\n",map(@lambda(n){ return n[0];},lst));
+        len = length(lst);
+        for(i=0; i<len;++i) {
+            @local nxt;
+            t = head(lst[i]);
+            nxt = i == len-1 ? par_nxt : lst[i+1];
+            switch(t) {
+                case 'star:
+                    fixup([lst[i][1]],lst[i]);
+                    if (lst[i][2] == nil) lst[i][2] = nxt;
+                    else error("shouldn't happen.\n");
+                    break;
+                case 'maybe:
+                    fixup([lst[i][1]],nxt);
+                    if (lst[i][2] == nil) lst[i][2] = nxt;
+                    else error("shouldn't happen.\n");
+                    break;
+                case 'or:
+                    fixup([lst[i][1]],nxt);
+                    fixup([lst[i][2]],nxt);
+                    break;
+                case 'sub:
+                    fixup(lst[i][1],nxt);
+                    break;
+                case 'any:
+                    lst[i][1] = nxt;
+                    break;
+                case 'class:
+                case 'notclass:
+                case 'chr:
+                    lst[i][2] = nxt;
+                    break;
+            }
+        }
+        //if (debug) printf("DONE FIXUP %a\n",lst);
+    };
+    fixup(tokens,['match]);
+    if (length(tokens) == 0) tokens = [['match]];
+    return regular_expression(head(tokens));
+}
+
+max_depth = 4;
+@define node_str(n,depth...) {
+    if (n == nil) return "<nil>";
+    if (length(depth) > 0) depth = depth[0];
+    else depth = 0;
+    if (depth >= max_depth) return "D";
+    printf("%s\n",n[0]);
+    switch(n[0]) {
+        case 'star: return sprintfa("star %s %s",
+                            node_str(n[1],depth+1),node_str(n[2],depth+1));
+        case 'maybe: return sprintfa("maybe %s %s",
+                            node_str(n[1],depth+1),node_str(n[2],depth+1));
+        case 'or: return "or";
+        case 'sub: return "sub";
+        case 'match: return "match";
+        case 'any: return sprintfa("any %s",node_str(n[1],depth+1));
+        case 'chr: return sprintfa("%a",[n[0],n[1],node_str(n[2],depth+1)]);
+        case 'class:
+        case 'notclass:
+          { @local str;
+            str = "{ ";
+            foreach(@lambda(k,v) {
+              if (str != "{ ") str += ",";
+              str += sprintfa("%c",k);
+            },n[1]);
+            str += " }";
+            return sprintfa("[%a, %s, %s]",n[0],str,node_str(n[2],depth+1));
+          }
+        default: return sprintfa("%a",[n[0],n[1]]);
+    }
+}
+
+@define nxt_nodes(chr,node) {
+    if (debug) {
+      printf("nxt_nodes with chr=%c and type=%s\n",
+              chr == nil ? 0 : chr, node[0]);
+      printf("%s next: %s\n",node_str(node),
+              node[0]=='chr ? node_str(node[2]) : "");
+    }
+    switch(node[0]) {
+    case 'any:
+        if (chr != nil) return [node[1]];
+        else return [];
+    case 'chr:
+        if (chr == node[1]) return [node[2]];
+        else return [];
+    case 'class:
+        if (node[1][chr] != nil) return [node[2]];
+        else return [];
+    case 'notclass:
+        if (node[1][chr] != nil) return [];
+        else return [node[2]];
+    case 'maybe:
+    case 'star:
+        {
+            @local ret;
+            ret = nxt_nodes(chr,node[1]);
+            ret = concat(ret,nxt_nodes(chr,node[2]));
+            return ret;
+        }
+    case 'or:
+        {
+            @local ret;
+            ret = nxt_nodes(chr,node[1]);
+            ret = concat(ret,nxt_nodes(chr,node[2]));
+            return ret;
+        }
+    case 'sub:
+        return nxt_nodes(chr,node[1][0]);
+    case 'match:
+        if (chr == nil) return [node];
+        else return [];
+    default:
+        error("bad type: %s",node[0]);
+    }
+}
+
+@define dfa_match(str,dfa) {
+    @local tab;
+    tab = mktabq();
+    tab[dfa.dfa] = 1;
+    return dfa_match_helper(str,tab,0,1) >= 0;
+}
+
+//if entire_string is 1, only return true if the
+//entire string matches.
+@define dfa_match_helper(str,nodes,idx,entire_string) {
+    @local len,i,ret,contains_match,idx2;
+    if (idx == length(str)) {
+        ret = mktabq();
+        foreach(@lambda(node,v) {
+            ret[node] = 1;
+            foreach(@lambda(n) {
+                ret[n] = 1;
+            },nxt_nodes(nil,node));
+        }, nodes);
+        //check for matches.
+        ret = tabkeys(ret);
+        len = length(ret);
+        for(i=0; i<len; ++i) {
+            if (ret[i][0] == 'match)
+              return idx == 0 ? 0 : idx-1;
+        }
+        return -1;
+    }
+    if (nodes == []) return -1;
+    ret = mktabq();
+    //printf("idx=%d str=%s\n",idx,str);
+    foreach(@lambda(node,v) {
+        foreach(@lambda(n) {
+            if (debug) printf("   next: %a\n",n[0]);
+            ret[n] = 1;
+            if (n[0] == 'match) contains_match = 1;
+        },nxt_nodes(str[idx],node));
+    }, nodes);
+    if (!entire_string && contains_match) {
+      idx2 = dfa_match_helper(str,ret,idx+1,entire_string);
+      return idx > idx2 ? idx : idx2;
+    }
+    //printf("results: %a\n",map(@lambda(n){ return n[0];},ret));
+    if (debug) printf("ret_nodes for %c (char %d): \n    %a\n",str[idx], idx,map(node_str,ret));
+    //printf("queue size: %d\n",length(nodes));
+    return dfa_match_helper(str,ret,idx+1,entire_string);
+}
+
+@define re_match(re,str) {
+	@local dfa;
+  if (debug) printf("re = %s str = %s\n",re,str);
+  if (isregular_expression(re)) dfa = re;
+  else dfa = re_create(re);
+  if (debug) printf("dfa = %a\n",node_str(dfa.dfa));
+	return dfa_match(str,dfa);
+}
+
+//Returns the first index in the given string where the
+//given regular expression is found.
+@define re_find(re,str) {
+	@local dfa,i,len,tab;
+    if (isregular_expression(re)) dfa = re;
+    else dfa = re_create(re);
+    len = length(str);
+    tab = mktabq();
+    tab[dfa.dfa] = 1;
+    for(i=0; i<len; ++i)
+        if (dfa_match_helper(str,tab,i,0) >= 0)
+            return i;
+    return -1;
+}
+
+//re_findend(re,str [, startidx])
+//attempts to match re against str starting at startidx (default 0)
+//returns -1 if no match, or the index of the end of the
+//largest possible match if one exists
+@define re_findend(re,str,args...) {
+  @local dfa,tab,start;
+  if (isregular_expression(re)) dfa = re;
+  else dfa = re_create(re);
+  start = 0;
+  if (length(args)>0) start=head(args);
+  tab = mktabq();
+  tab[dfa.dfa] = 1;
+  return dfa_match_helper(str,tab,start,0);
+}
+
+//Returns [idx_beg,idx_end], where idx_beg is the first index that
+//matches the re, and idx_end is the last index of the largest match
+//starting at idx_beg.
+//Returns nil if nothing in the string matches the re
+@define re_findrange(re,str) {
+  @local dfa,i,len,tab,end;
+  if (isregular_expression(re)) dfa = re;
+  else dfa = re_create(re);
+  len = length(str);
+  tab = mktabq();
+  tab[dfa.dfa] = 1;
+  for(i=0; i<len; ++i) {
+    end = dfa_match_helper(str,tab,i,0);
+    if (end >= 0) return [i,end];
+  }
+  return nil;
+}
+
+
+
+}

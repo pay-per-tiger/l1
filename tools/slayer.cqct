@@ -1,0 +1,19 @@
+#!/bin/bash
+	exec l1 -e slayer_main "$0" "$@"
+	exit 1
+!#
+
+@define slayer_main(progname, args ...) {
+	@local signum;
+
+	if(length(args) == 0) {
+		fprintf(stderr, "Usage: %s <signum>\n", progname);
+		sys_exit(1);
+	}
+
+	signum = strton(args[0]);
+
+	sys_kill(getpid(), signum);
+
+	sys_exit(0);
+};

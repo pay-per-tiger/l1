@@ -1,0 +1,400 @@
+/*
+
+  //FIXME update to match l1 formatting.
+
+  ppstx - abstract syntax pretty printer
+
+  ppstx(STX) pretty prints the syntax object STX.
+
+  mkpp - utility to make pretty printer
+
+  the algorithm is based on the one described in:
+
+  [1]  Derek C. Oppen.  Prettyprinting.  TOPLAS 2(4), Oct
+	   1980, pp. 465-483.
+
+  (however, this implmentation uses O(n) space and time,
+  for input size n)
+
+  The API semantics for "groups" and "blanks" are
+  taken from:
+
+  [2] Swierstra ,S. Doaitse, and Olaf Chitil. Linear,
+	  bounded, functional pretty-printing. Journal of
+	  Functional Programming 10.01 (2009); 1-16
+
+*/
+
+@global mkpp;
+@global ppprint;
+
+/*
+	default print to standard out for use with mkpp
+*/
+@define ppprint(x) { printf("%s",x); }
+
+/*
+  Make a pretty printer for some type of object
+
+  A pretty printer prints objects in such a way as to avoid
+  surpassing a given line with if possible (but not adding
+  in extra newlines if necessary).
+
+  The parameters are:
+  pr: output function, called as pr(s). Should "print" the string s.
+	  The function ppprint is a provided default such function that
+	  prints to stdout.
+  docify: creates the "document" to be printed (decribed below)
+		  called as docify(e,queue,ppobj).
+  ppmargin: size of the margin
+
+  To accomplish pretty printing, the pretty printer requires a docify function
+  to convert from the input type (which may be anything) to an intermediate
+  format specifying how to group the output (for indentation purposes) and
+  where newlines would be allowed. This intermediate format is known as a
+  document. A document is a list of strings and other special symbols that
+  represent the begin and end of a syntax group, the existence of whitespace
+  that could be a newline, and a symbol that represents a forced newline. These
+  symbols are accessible to the docify function via the passed ppobj.
+
+  The docify function is called as docify(v,queue,ppobj), where v is the value
+  to be formatted, queue is a function that adds a given string or special
+  symbol to the list to be printed, and ppobj is a table giving access to
+  special formatting symbols.  If queue is passed a list, elements of the list
+  are recursively given back to queue until a string or a special document
+  symbol is reached. Finally docify is provided the ppobj object, which
+  provides various special symbols to help control the formatting.  It is
+  expected that docify will pass all that is necessary to queue to entirely
+  represent the passed value v.
+
+  The rules for printing are (derived from [2])
+  1) The symbols between a "left" symbol and a matching "right" symbol are a
+	 group. Groups can be recursive. There is an implicit topmost group.
+  2) All "blank" symbols directly within a given group (i.e. within
+	 the group but not within any of the group's subgroups) are
+	 formatted the same: as newlines or as whitespace. If the blank
+	 symbols within a group are formatted as newlines, we say the group
+	 is vertical, if formatted as spaces, we say the group is horizontal.
+  3) Excepting the topmost group, if a group is formatted horizontally, then
+	 all subgroups of that group must also be formatted horizontally
+  4) All newlines within a given group are given the same level of indentation.
+	 Where the indentation starts is determined by the group type. See group
+	 types below.
+  5) If a group cannot fit on a line within the available width,
+	 then it is converted to a vertical group.
+
+  Group types:
+	All groups have a type and an indentation level. These define how
+	indentation after a newline will be handled. The group type specifies
+	where the post-newline indentation will start from (i.e. with respect to
+	the leftmost column, with respect to the previous newline, etc).
+	There are three group types:
+	'nlleft: New line left groups indent their new lines starting at the
+			 leftmost margin.
+	'nlhere: New line here groups indent their new lines starting from the
+			 current column.
+	'nloff:  New line off groups indent their new lines starting from the
+			 column on which the last group started.
+
+  The ppobj is an object that gives access to constructors for these kinds of
+  objects. The fields of the ppobj are:
+	 mkgroup	: called as ppobj.mkgroup(type,indent,lst). The output
+				  is a properly specified group of the given type with the
+				  given indentation level that can be passed to queue. The
+				  lst arguement is a list containing the contents of the group.
+	 mkhgroup	: called as ppobj.mkhgroup(indent,lst). See mkgroup above,
+				  except that the group created is a "here" ('nlhere) group.
+	 mklgroup	: called as ppobj.mklgroup(indent,lst). See mkgroup above,
+				  except that the group created is a "left" ('nlleft) group.
+	 mkogroup	: called as ppobj.mkogroup(indent,lst). See mkgroup above,
+				  except that the group created is a "off" ('nloff) group.
+	 mkblank	: called as ppobj.mkblank(n). Creates a blank n spaces long.
+	 blank		: a blank one space long.
+	 linebreak  : blank gauranteed to force a newline.
+
+*/
+@define mkpp(pr,docify,ppmargin)
+{
+	@local stream;
+	@local print;
+	@local left, blank, right, linebreak;
+	@local margin;
+	@local ppobj;
+
+	@local B, L, R, isB;
+
+	B = @lambda(n) {
+		//return [ 'B, n ];
+		return [
+			'B: 1,
+			'n: n,
+		];
+	};
+	isB = @lambda(v) {
+		//return islist(v) && (length(v) == 2) && (v[0] == 'B);
+		return istable(v) && v.B;
+	};
+
+	L = @lambda(offset, kind, indent) {
+		//return [ 'L, offset, kind, indent ];
+		return [
+			'L: 1,
+			'offset: offset,
+			'kind: kind,
+			'indent: indent
+		];
+	};
+
+	R = @lambda() {
+		//return [ 'R ];
+		return [
+			'R: 1
+		];
+	};
+
+	//r = @record B { n };
+	//rdsetfmt(r,@lambda(a) { sprintfa("B(%d)",a.n); });
+	//kinds:
+	//'nlleft: start the newline indentation from the leftmost column
+	//'nlhere: start the newline indentation from here
+	//'nloff: start at the offset of the last group
+	//r = @record L { offset, kind, indent };
+	//rdsetfmt(r,
+	//	@lambda(a) { sprintfa("L(%d,%a,%d)",a.offset,a.kind,a.indent); });
+	//@record R { };
+
+	margin = ppmargin;
+
+	stream = [];
+
+	@defloc queue(x)
+	{
+		if (islist(x))
+			foreach(queue,x);
+		else
+			append(stream, x);
+	}
+
+	@defloc indent(w)
+	{
+		@local s;
+		s = mkstr(w);
+		memset(s, ' ', w);
+		pr(s);
+	}
+
+	@defloc nl(w)
+	{
+		pr("\n");
+		indent(w);
+	}
+
+	@defloc mkprint()
+	{
+		@local stk;
+		@local space;
+		@local didnl;
+
+		@local E;
+		//rdsetfmt( @record E { offset, kind } ,
+		//		  @lambda(e) { sprintfa("E(%a,%a)",e.offset,e.kind); });
+		E = @lambda(offset, kind) {
+			//return [ 'E, offset, kind ];
+			return [ 'E: 1, 'offset: offset, 'kind: kind ];
+		};
+
+		space = margin;
+		//stk = [ ['E, margin, 'horizontal] ];
+		stk = [ E(margin, 'horizontal) ];
+		didnl = 0;
+
+		@defloc out(x, l)
+		{
+			@local off;
+			//printf("%a %a %a %a %a\n",x,l,space,stk[0],length(stk));
+			switch(x){
+			@match ['L: _, 'offset: o, 'kind: k, 'indent: i]:
+				switch (k) {
+				case 'nlleft:
+					off = margin-i;
+					break;
+				case 'nlhere:
+					off = space-i;
+					break;
+				case 'nloff:
+					off = stk[0].offset-i;
+					break;
+				default: error("bad group begin kind");
+				}
+				if (l < space)
+					push(stk, E(off,'horizontal));
+				else
+					push(stk, E(off,'vertical));
+				break;
+			@match ['R: _]:
+				pop(stk);
+				break;
+			@match ['B: _, 'n: n]:
+				if(stk[0].kind == 'vertical) {
+					space = stk[0].offset;
+					if (didnl > -1 && margin - space - didnl > 0) {
+						indent(margin - space - didnl);
+						didnl = margin - space;
+					} else {
+						nl(margin - space);
+						didnl = margin - space;
+					}
+				}else{
+					space -= n;
+					indent(n);
+				}
+				break;
+			default:
+				/* string */
+				pr(x);
+				space -= (int)l;
+				didnl = -1;
+				break;
+			}
+		}
+
+		return out;
+	}
+
+	@defloc isempty(s)
+	{
+		return length(s) == 0;
+	}
+
+	@defloc scan()
+	{
+		@local stk, l, r, rt;
+		@local buf, len;
+
+		stk = [];
+		buf = [];
+		len = [];
+		l = r = 0;
+		rt = 1; /* ? */
+
+		@defloc loop()
+		{
+			@local x, i;
+			if(isempty(stream)) {
+				while(l < r) {
+					print(buf[l], len[l]);
+					l++;
+				}
+				return;
+			}
+			switch(x = pop(stream)){
+			@match ['L:_, 'offset: o, 'kind: k, 'indent: i]: //XXX use i
+				if(isempty(stk)){
+					l = r = 0;
+					rt = 1; /* ? */
+				}else
+					r++;
+				buf[r] = x;
+				len[r] = -rt;
+				push(stk, r);
+				break;
+			@match ['R:_]:
+				r++;
+				buf[r] = x;
+				len[r] = 0;
+				i = pop(stk);
+				len[i] += rt;
+				if(isB(buf[i])){
+					i = pop(stk);
+					len[i] += rt;
+				}
+				if(isempty(stk))
+					while(l < r){
+						print(buf[l], len[l]);
+						l++;
+					}
+				break;
+			@match ['B:_, 'n: n]:
+				r++;
+				if (!isempty(stk)) {
+					i = stk[0];
+					if(isB(buf[i])){
+						i = pop(stk);
+						len[i] += rt;
+					}
+				}
+				buf[r] = x;
+				len[r] = -rt;
+				push(stk, r);
+				rt += n;
+				break;
+			default:
+				/* string */
+				if(isempty(stk)){
+					print(x, length(x));
+					break;
+				}
+				r++;
+				buf[r] = x;
+				len[r] = (int)length(x);
+				rt += (int)length(x);
+				break;
+			}
+			loop();
+		}
+
+		loop();
+	}
+
+	left = L(0, 'nlhere, 0);
+	blank = B(1);
+	right = R();
+	linebreak = B(margin+1);
+	@defloc mkblank(n) { B(n); }
+	@defloc mkleft(k,i) { L(0,k,i); }
+	@defloc mkright() { R(); }
+
+	@defloc mkgroup(k,i,grp) {
+		return [L(0,k,i), grp, right];
+	}
+
+	@defloc mkhgroup(i,args...) {
+		return apply(mkgroup,'nlhere,i,args);
+	}
+	@defloc mklgroup(i,args...) {
+		return apply(mkgroup,'nlleft,i,args);
+	}
+	@defloc mkogroup(i,args...) {
+		return apply(mkgroup,'nloff,i,args);
+	}
+
+	ppobj = mktab(@lambda() { error("undefined symbol\n"); });
+	foreach(@lambda(k,v) {
+		ppobj[k] = v;
+	},[
+		'left		: left,
+		'right		: right,
+		'blank		: blank,
+		'linebreak	: linebreak,
+		'mkblank	: mkblank,
+		'mkleft		: mkleft,
+		'mkright	: mkright,
+		'mkgroup	: mkgroup,
+		'mkhgroup	: mkhgroup,
+		'mklgroup	: mklgroup,
+		'mkogroup	: mkogroup,
+	]);
+
+
+	@defloc pp(e,args...) {
+		if(e == nil)
+			return;
+		if (length(args)>0) margin = args[0];
+		else margin = ppmargin;
+		print = mkprint();
+		docify(e,queue,ppobj);
+		scan();
+	};
+
+	return pp;
+}

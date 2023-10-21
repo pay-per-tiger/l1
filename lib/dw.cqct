@@ -1,0 +1,5770 @@
+@define mkdwdom (elfdom, dbsec, domname) {
+  @local dwas, dwnames;
+  dwnames = @names elfdom.ns {
+    @include "dw.names"
+  };
+  dwas = mksas (dbsec);
+  return mkdom (dwnames, dwas, domname);
+}
+
+/* We don't want to keep rebuilding this information, so I'm creating
+   a global list of vectors until we figure out a better way to keep
+   expensively generated data around . Each vector will contain values
+   associated with a particular binary file. Each element of the
+   vector is either nil or the value associated with one of the
+   _dwcqct values defined below. The elements occur in the following
+   order in the array: "execdomain", "elfdomain", ".debug_aranges",
+   ".debug_pubnames", ".debug_info", ".debug_abbrev", ".debug_line",
+   ".debug_frame", ".debug_str", ".debug_ranges", ".debug_loc",
+   "frametable", and "linetable". The "execdomain" will be the domain
+   from which we can extract register and memory values to perform
+   stack unwinds. An "elfdomain" is the elf field of a record created by
+   mkelfrec with a binary ELF file as an argument.  Each of the
+   "_dwcqct_debug_<name>" elements is a DWARF domain based on the ELF
+   section with a similar name in the ELF binary. "frametable" is a
+   vector of DWARF Frame Descriptor Entries (FDEs) sorted by address
+   and produced by calling dw_build_frametable with the ".debug_frame"
+   domain as an argument. The linetable describes linenumber
+   information for a compilation unit. Each element of the linetable
+   is a list consisting of a pointer to the beginning of the cu
+   information in .debug_line, an inclusive start address, an
+   exclusive end address, a list of directory names with numbers, a
+   list of source files with file numbers, and a vector of triples
+   giving address, source file number, and source file line.  The idea
+   is that addr2line can search the linetable to find the cu that
+   includes the address in question, and then search the triples to
+   find the particular address with its source file and source line
+   number information. _dwcqct_addrsize is the size of addresses
+   on the target machine as specified in the compilation unit header that
+   begins the .debug_info section. _dwcqct_rootns is the root namespace
+   for the binary. mkelfrec (in elf.cqct) chooses a root namespace based
+   on the word size and endianness of the elf binary, but that choice
+   is not propagated. It can be recovered from the elf domain and
+   associated with the other values when necessary--e.g., when computing
+   cqct bitfield offsets. */
+
+_dwcqct_execdomain = 0;
+_dwcqct_elfdomain = 1;
+_dwcqct_debug_aranges = 2;
+_dwcqct_debug_pubnames = 3;
+_dwcqct_debug_info = 4;
+_dwcqct_debug_abbrev = 5;
+_dwcqct_debug_line = 6;
+_dwcqct_debug_frame = 7;
+_dwcqct_debug_str = 8;
+_dwcqct_debug_ranges = 9;
+_dwcqct_debug_loc = 10;
+_dwcqct_frametable = 11;
+_dwcqct_linetable = 12;
+_dwcqct_addrsize = 13;
+_dwcqct_rootns = 14;
+_dwcqct_vectorsize = 15;
+
+_dw_current_frame_base = nil;
+current_compilation_unit = nil;
+
+@record curec {ttab, stab, ftabs, ns, fblist, abtable};
+
+/*For decoding leb128 values, we probably need to return something like a list
+  of the value and either the number of bytes it occupies or a pointer to the
+  next byte following the value. */
+
+@define decodeuleb128 (addr)
+{
+  @local result, cptr, value, byte, shift;
+  result = [];
+  cptr = (unsigned char *) addr;
+  value = 0;
+  shift = 0;
+  while (1) {
+    byte = *cptr++;
+    value |= ((byte & 0x7f) << shift);
+    if (byte & 0x80)
+      shift += 7;
+    else
+      break;
+  }
+  append (result, value);
+  append (result, cptr);
+  return result;
+}
+
+@define decodesleb128 (addr)
+{
+  @local result, cptr, value, byte, size, shift, dom;
+  result = [];
+  dom = domof (addr);
+  size = 8 * sizeof (dom`int);
+  cptr = (unsigned char *) addr;
+  value = 0;
+  shift = 0;
+  while (1) {
+    byte = *cptr++;
+    value |= ((byte & 0x7f) << shift);
+    shift += 7;
+    if (byte & 0x80)
+      continue;
+    else
+      break;
+  }
+  if ((shift < size) && (byte & 0x40)) {
+    /* sign extend */
+    value |= (- (1 << shift));
+  }
+  append (result, value);
+  append (result, cptr);
+  return result;
+}
+
+@define advance_strptr (dwdom, sptr)
+{
+  @local result, str;
+  result = [];
+  str = stringof ((unsigned char *) sptr);
+  append (result, str);
+  append (result, sptr + strlen (str) + 1);
+  return result;
+}
+
+@define dw_get_aranges (ardom)
+{
+  @local hdrcnt, curaddr, arhdr, asize, alen, rem, artuple, rv;
+  @local m, r, rbeg, rend, inrange;
+  rv = [];
+  hdrcnt = {ardom}0;
+  curaddr = {ardom}0x0;
+  alen = {ardom}0x0;
+  arhdr = (struct ardom`arangehdr *)curaddr;
+  asize = arhdr->addr_size;
+  /* The DWARF 2 spec (sec. 7.20) says that the first (offset, size) tuple
+     following the header begins at a multiple of the size of a single tuple
+     (twice the size of an address). */
+  curaddr += sizeof (struct ardom`arangehdr);
+  rem = curaddr % (2 * asize);
+  if (rem)
+    curaddr += (2 * asize - rem);
+  if (asize == 4)
+    artuple = (struct arange32 *)curaddr;
+  else if (asize == 8)
+    artuple = (struct arange64 *)curaddr;
+  else {
+    printf ("unsupported address size: %d\n", asize);
+    return nil;
+  }
+  m = ardom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  if (!inrange (artuple))
+    return nil;
+  while (artuple->ar_start || artuple->ar_len) {
+    while (artuple->ar_start || artuple->ar_len) {
+      append (rv, [artuple->ar_start, artuple->ar_start + artuple->ar_len,
+	      arhdr->di_off]);
+      artuple++;
+      if (!inrange (artuple)) {
+	printf ("unmapped address at 0x%x\n", artuple);
+	return;
+      }
+    }
+    /* advance past 0 offset and length indicating end of this arange set.*/
+    artuple++;
+    arhdr = (struct ardom`arangehdr *)artuple;
+    hdrcnt ++;
+    curaddr = (unsigned int) arhdr;
+    curaddr += sizeof (struct ardom`arangehdr);
+    rem = curaddr % (2 * asize);
+    if (rem)
+      curaddr += (2 * asize - rem);
+    if (asize == 4)
+      artuple = (struct arange32 *)curaddr;
+    else if (asize == 8)
+      artuple = (struct arange64 *)curaddr;
+    if (!inrange (artuple))
+      break;
+  }
+  sort (rv, @lambda (e1, e2) {
+      if (e1[0] < e2[0])
+	return -1;
+      else if (e1[0] > e2[0])
+	return 1;
+      return 0;
+    });
+  return rv;
+}
+
+@define dw_show_aranges (arl)
+{
+  @local i, j, k, arent, ar, cuoff, cul;
+  for (i = 0; i < length (arl); i++) {
+    ar = arl[i];
+      printf ("0x%x\t\t0x%x\t\t%d\n", ar[0], ar[1], ar[2]);
+  }
+}
+
+@define dw_get_dieoff_for_cu (bdrec, addr)
+{
+  @local ardom, pc, entry, lopc, hipc, off;
+  ardom = bdrec.debug_aranges;
+  pc = {ardom}addr;
+  entry = binsrch_interval (ardom, bdrec.artab, pc);
+  if (!islist (entry))
+    return nil;
+  entry = entry[0];
+  off = entry[2];
+  if (entry[0] <= addr && addr < entry[1]) {
+    return off;
+  }
+  else
+    return nil;
+}
+
+@define dw_get_lineoff_for_cu (bdrec, addr)
+{
+  @local cptr, cu, abdom, strdom, indom, cubase, lineoff, ardom;
+  @local abptr, abtab, cul;
+  abdom = bdrec.debug_abbrev;
+  strdom = bdrec.debug_str;
+  indom = bdrec.debug_info;
+  ardom = bdrec.debug_aranges;
+  cptr = dw_get_dieoff_for_cu (bdrec, addr);
+  if (isnil (cptr))
+    return nil;
+  else
+    cptr = {indom} cptr;
+  cubase = cptr;
+  cu = (struct dw_cu_hdr *) cptr;
+  if (!isnil (bdrec.cuinfotab[(unsigned int)cptr])) {
+    abtab = bdrec.cuinfotab[(unsigned int)cptr].abtable;
+  }
+  else {
+    printf ("in get lineoff did not find bdrec.cuinfotab value at %d\n", cptr);
+    abptr = {abdom} cu->abbroff;
+    abtab = dw_get_cu_abbrev_table (abdom, abptr);
+  }
+  cptr = (unsigned int) cptr + sizeof (*cu);
+  cul = dw_process_die (bdrec, abtab, nil,
+			nil, [], cptr, cubase, 1);
+  lineoff = listref (listref (cul, 0), 5);
+  return lineoff;
+}
+
+@define dw_get_fixed_spp (dwdom, addr)
+{
+  @local base, sptr;
+  base = {dwdom} addr;
+  sptr = (struct dwdom`dw_fixed_spp *) base;
+  return sptr;
+}
+
+@define dw_show_stdopcodelens (dwdom, addr)
+{
+  @local base, sptr, oplenbase, i, lenlist;
+  lenlist = [];
+  base = {dwdom} addr;
+  sptr = (struct dwdom`dw_fixed_spp *) base;
+  oplenbase = (unsigned char *) (base + sizeof (*sptr));
+  for (i = 0; i < sptr->opcode_base - 1; i++) {
+    append (lenlist, *(oplenbase + i));
+  }
+  return lenlist;
+}
+
+@define dw_get_dirs (dwdom, addr)
+{
+  @local base, sptr, dbase, dlist, dir;
+  @local m, r, rbeg, rend, inrange;
+  base = {dwdom} addr;
+  dlist = append ([], ".");
+  sptr = (struct dwdom`dw_fixed_spp *) base;
+  dbase = (unsigned char *)(base + sizeof (*sptr) + sptr->opcode_base - 1);
+  m = dwdom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  while (inrange (dbase) && (*dbase)) {
+    dir = advance_strptr (dwdom, dbase);
+    append (dlist, head (dir));
+    dbase = (unsigned char *) (listref (dir, 1));
+  }
+  return append (append ([], dlist), dbase + 1);
+}
+
+/* Each file entry is a string followed by 3 unsigned leb128 numbers. The first
+   is the number of the directory in which the file was found. The next two, if
+   nonzero, are the last modification time and the length in bytes of the
+   file. (DWARF 2 spec, sec. 6.2 Line Number Information). We keep and return
+   a count because the state machine that processes line number information
+   includes an instruction to define a file, and its number must be greater
+   than the numbers of the files listed in the prologue. */
+@define dw_get_files (dwdom, addr)
+{
+  @local fbase, f, fentry, flist, dlist, dres, count, base;
+  @local m, r, rbeg, rend, inrange;
+  base = {dwdom} addr;
+  flist = [];
+  count = 0;
+  dres = dw_get_dirs (dwdom, base);
+  dlist = head (dres);
+  fbase = listref (dres, 1);
+  m = dwdom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  while (inrange (fbase) && (*fbase)) {
+    @local dpair, mtime, fsize;
+    f = advance_strptr (dwdom, fbase);
+    dpair = decodeuleb128 (listref (f, 1));
+    fentry = append (append ([], head (f)), head (dpair));
+    dpair = decodeuleb128 (listref (dpair, 1));
+    mtime = head (dpair);
+    append (fentry, mtime);
+    dpair = decodeuleb128 (listref (dpair, 1));
+    fsize = head (dpair);
+    append (fentry, fsize);
+    count++;
+    append (flist, fentry);
+    fbase = listref (dpair, 1);
+  }
+  return append (append (append ([], flist), fbase + 1), count);
+}
+
+/* Straight from the DWARF 2 spec, section 6.2 */
+@define dw_get_cu_linenumber_info (bdrec, ptr)
+{
+  @local addr, file, line, column, is_stmt, bb, endseq, spp, obase;
+  @local stoplens, op, cptr, lastfnum, pfiles, oplim, base, result;
+  @local saddr, eaddr, amap, cmap, tmap, i, al, avec, asize;
+  @local linedom;
+  linedom = bdrec.debug_line;
+  base = {linedom} ptr;
+  asize = bdrec.addrsize;
+  saddr = 0;
+  eaddr = 0;
+  amap = [];
+  cmap = [ 0, 0, 0 ];
+  result = [base, saddr, eaddr, head (dw_get_dirs (linedom, ptr))];
+  oplim = 0;
+  addr = 0;
+  file = 1;
+  line = 1;
+  column = 0;
+  is_stmt = 0; /* reset by reading spp */
+  bb = 0; /* Boolean false */
+  endseq = 0; /* Boolean false */
+  spp = dw_get_fixed_spp (linedom, base);
+  is_stmt = spp->def_is_stmt;
+  obase =  spp->opcode_base;
+  stoplens = dw_show_stdopcodelens (linedom, base);
+  pfiles = dw_get_files (linedom, base);
+  append (result, head (pfiles));
+  lastfnum = listref (pfiles, 2);
+  cptr = (unsigned char *) (listref (pfiles, 1));
+  while ( (cptr < ((unsigned char *)base + spp->total_len + sizeof (unsigned int)))) {
+    op = *cptr;
+    if (op == 0) {
+      /* then we have an extended opcode */
+      @local suboplen, subop, elen;
+      cptr++;
+      elen = decodeuleb128 (cptr);
+      suboplen = head (elen);
+      cptr = listref (elen, 1);
+      subop = *cptr++;
+      switch (subop) {
+      case linedom`DW_LNE_end_sequence: {
+	endseq = 1;
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	addr = 0;
+	file = 1;
+	line = 1;
+	column = 0;
+	is_stmt = spp->def_is_stmt;
+	bb = 0; /* Boolean false */
+	endseq = 0; /* Boolean false */
+	break;
+      }
+      case linedom`DW_LNE_set_address: {
+	if (asize == 4)
+	  addr = * (`uint32 *)cptr;
+	else
+	  addr = * (`uint64 *)cptr;
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	break;
+      }
+      case linedom`DW_LNE_define_file: {
+	@local fname;
+	lastfnum ++;
+	fname = advance_strptr (linedom, cptr);
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	break;
+      }
+      default:
+	printf ("Extended Opcode %d not found.\n", op);
+	printf ("ptr is 0x%x (%d), cptr is 0x%x (%d), suboplen is %a\n",
+		ptr, ptr, cptr, cptr, suboplen);
+	break;
+      }
+      cptr += (unsigned int) (suboplen - 1); /* -1 for the subopcode */
+    }
+    else if (op < obase) {
+      /* then we have a standard opcode */
+      switch (op) {
+      case linedom`DW_LNS_copy:
+	cptr++;
+	bb = 0;
+	break;
+      case linedom`DW_LNS_advance_pc: {
+	@local lad;
+	cptr++;
+	lad = decodeuleb128 (cptr);
+	addr += (spp->min_inst_len * head (lad));
+	cptr = listref (lad, 1);
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	break;
+      }
+      case linedom`DW_LNS_advance_line: {
+	@local lad;
+	cptr++;
+	lad = decodesleb128 (cptr);
+	line += (signed int) (head (lad));
+	cptr = listref (lad, 1);
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	break;
+      }
+      case linedom`DW_LNS_set_file: {
+	@local lad;
+	cptr++;
+	lad = decodeuleb128 (cptr);
+	file = head (lad);
+	cptr = listref (lad, 1);
+	break;
+      }
+      case linedom`DW_LNS_set_column: {
+	@local lad;
+	cptr++;
+	lad = decodeuleb128 (cptr);
+	column = head (lad);
+	cptr = listref (lad, 1);
+	break;
+      }
+      case linedom`DW_LNS_negate_stmt:
+	if (is_stmt)
+	  is_stmt = 0;
+	else
+	  is_stmt = 1;
+	break;
+      case linedom`DW_LNS_set_basic_block:
+	bb = 1;
+	break;
+      case linedom`DW_LNS_const_add_pc:{
+	@local redop, ainc;
+	cptr++;
+	redop = 255 - obase;
+	ainc = redop / spp->line_range;
+	addr += ainc;
+	break;
+      }
+      case linedom`DW_LNS_fixed_advance_pc: {
+	@local ainc;
+	cptr++;
+	ainc = *(unsigned short *)cptr;
+	addr += ainc;
+	cptr += sizeof (unsigned short);
+	tmap = [ addr, file, line ];
+	if (listref (tmap, 0) != listref (cmap, 0)
+	    || listref (tmap, 1) != listref (cmap, 1)
+	    || listref (tmap, 2) != listref (cmap, 2)) {
+	  cmap = tmap;
+	  append (amap, cmap);
+	}
+	break;
+      }
+      case linedom`DW_LNS_set_prologue_end:
+      case linedom`DW_LNS_set_epilogue_begin:
+      case linedom`DW_LNS_set_isa:
+	break;
+      default:
+	printf ("default op is %d\n", op);
+	break;
+      }
+    }
+    else /* we have a special opcode */ {
+      @local redop, ainc, linc;
+      redop = op - obase;
+      ainc = redop / spp->line_range;
+      linc = spp->line_base + (redop % spp->line_range);
+      addr += ainc;
+      line += linc;
+      bb = 0;
+      cptr++;
+      tmap = [ addr, file, line ];
+      if (listref (tmap, 0) != listref (cmap, 0)
+	  || listref (tmap, 1) != listref (cmap, 1)
+	  || listref (tmap, 2) != listref (cmap, 2)) {
+	cmap = tmap;
+	append (amap, cmap);
+      }
+    }
+    oplim ++;
+  }
+  /* We can rely on the addresses being in increasing order. Reset saddr
+     to head (head (amap)) and eaddr to head (cmap); */
+  if (isempty (amap) || isempty (head (amap))) {
+    printf ("amap is %a and result is %a\n", amap, result);
+    listset (result, 1, 0);
+  }
+  else
+    listset (result, 1, head (head (amap)));
+  listset (result, 2, head (cmap));
+  append (result, amap);
+  append (result, cptr);
+  return result;
+}
+
+@define dw_unwind_to_caller (bdrec, addr)
+{
+  @local result, loc, curstate, statestack, rules, cie, fde, iptr, end, rval;
+  @local cad, cptr, clim, asize, fdel;
+  @local ftab;
+  @local fdom;
+  rval = bdrec.fregtab [addr];
+  if (isnil (rval))
+    rval = [];
+  else
+    return rval;
+  fdom = bdrec.debug_frame;
+  statestack = [];
+  result = [];
+  rules = [];
+  cad = {fdom} addr;
+  cptr = {fdom} 0;
+  asize = bdrec.addrsize;
+  ftab = dw_build_frametab (bdrec);
+  fdel = bsearch (cad, ftab,
+		 @lambda (a,b) {if (a < listref (b, 0)) return -1;
+		   else if (a >= listref (b, 1)) return 1;
+		   else return 0;});
+  if (isnil (fdel)) {
+    return result;
+  }
+  fde = listref (fdel, 2);
+    clim = (int) fde + listref (fdel, 3) + sizeof (fde->len);
+  cie = (struct dw_cie_struct *) fde->cie_off;
+  loc = fde->init_loc;
+  end = (unsigned int) loc + fde->addr_range;
+  if (cad < loc || cad >= end) {
+    printf ("returning %a because cad = %d loc = %d end = %d\n", result,
+	    cad, loc, end);
+    return result;
+  }
+  rules = dw_get_cie_init_ruleset (bdrec, cie);
+  curstate = [ loc, rules ];
+  iptr = (unsigned char *) ((unsigned int) fde + sizeof (*fde));
+  result = dw_process_one_fde_inst (bdrec, iptr, cie, curstate, statestack);
+  rval = [ curstate, iptr, statestack ];
+  while (!isnil (result)
+	 && head (listref (result, 0)) <= cad) {
+    rval = result;
+    curstate = listref (result, 0);
+    iptr = listref (result, 1);
+    statestack = listref (result, 2);
+    loc = head (curstate);
+    if (iptr >= clim)
+      break;
+    result = dw_process_one_fde_inst (bdrec, iptr, cie, curstate, statestack);
+  }
+  if (head (curstate) < cad) {
+    /* then we reached the end of the instruction stream and can assume
+       that the current rule set is also correct for cad */
+    curstate = [ cad, listref (curstate, 1) ];
+    rval = [ curstate, iptr, statestack ];
+  }
+  bdrec.fregtab [addr] = rval;
+  return rval;
+}
+
+/* Each register will be defined by a register and an offset. Register
+   values -1 and -2 will indicate "undefined" and "same value," respectively.
+   Register value 0 denotes the Canonical Frame Address (CFA). We maintain
+   a stack of rule lists, where each rule list provides the rules for
+   restoring registers from the previous frame. We also maintain the current
+   state as a list of a location and a rule list. The following function
+   processes one instruction and performs one of three actions: pushes the
+   current rule list on the stack, pops the top rule list from the stack into
+   the current state, or changes the current state in some specific way
+   (location or rule list). The function returns a list of the current state,
+   a pointer to the next instruction, and the state stack. For example, the
+   state of an i386 function beginning compiled by GCC might be something
+   like this:
+   (0x770, (0, 4, 4), (8, 0, -4)),
+   which indicates that at the start of the function (address 0x770) the
+   CFA is the VALUE (esp + 4) and that the return address (represented by
+   register 8) is stored at LOCATION (CFA - 4). After the typical start of
+   a function prolog on this machine/compiler pair (push ebp), the new
+   state would be
+   (0x771, (0, 4, 8), (5, 0, -8), (8, 0, -4)).
+   We store the rules in ascending order of register so that we can easily
+   find a register rule that needs to be replaced. */
+
+@define dw_process_one_fde_inst (bdrec, instptr, cie, curstate, statestack)
+{
+  @local fdom, cptr, caf, daf, primop, op, reg, result, delta, loc, r, rules, asize;
+  fdom = bdrec.debug_frame;
+  asize = bdrec.addrsize;
+  result = [];
+  if (!isempty (curstate)) {
+    loc = head (curstate);
+    rules = listref (curstate, 1);
+  }
+  else {
+    if (asize == 4)
+      rules = mklist (9);
+    else if (asize == 8)
+      rules = mklist (17);
+    loc = 0;
+  }
+  caf = dw_cie_afs (fdom, cie); /* returns a list of caf and daf */
+  daf = listref (caf, 1);
+  caf = listref (caf, 0);
+  cptr = {fdom} instptr;
+  op = *(unsigned char *) cptr;
+  primop = op >> 6;
+  cptr++;
+  switch (primop) {
+  case fdom`DW_CFA_advance_loc:
+    delta = op & 0x3f;
+    curstate = [ loc + delta, rules ];
+    result = [ curstate, cptr, statestack ];
+    return result;
+    break;
+  case fdom`DW_CFA_offset: {
+    @local rule, off;
+    reg = op & 0x3f;
+    off = decodeuleb128 (cptr);
+    cptr = listref (off, 1);
+    off = head (off);
+    rule = [ reg, fdom`DW_FRAME_CFA_COL, off * daf ];
+    listset (rules, reg, rule);
+    curstate = [ loc, rules ];
+    result = [ curstate, cptr, statestack ];
+    return result;
+  }
+    break;
+  case fdom`DW_CFA_restore: {
+    /* For this we have to get the initial rule set for the CIE; to do that,
+       we call this function recursively with phony location, empty rule set,
+       and empty statestack so that we can retrieve just the rules. */
+    @local irules;
+    reg = op & 0x3f;
+    irules = dw_get_cie_init_ruleset (fdom, cie);
+    listset (rules, reg, listref (irules, reg));
+    curstate = [ loc, rules ];
+    result = [ curstate, cptr, statestack ];
+    return result;
+  }
+    break;
+  case {fdom} 0: {
+    op = op & 0x3f;
+    switch (op) {
+    case fdom`DW_CFA_set_loc: {
+      loc = *(unsigned long *) cptr;  /* assume that unsigned long is the size
+					 of an address */
+      cptr += sizeof (loc);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_advance_loc1: {
+      @local delta;
+      delta = *(unsigned char *) cptr;
+      cptr += sizeof (delta);
+      curstate = [ loc + delta, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_advance_loc2: {
+      @local delta;
+      delta = *(unsigned short *) cptr;
+      cptr += sizeof (delta);
+      curstate = [ loc + delta, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_advance_loc4: {
+      @local delta;
+      delta = *(unsigned int *) cptr;
+      cptr += sizeof (delta);
+      curstate = [ loc + delta, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_offset_extended: {
+      @local reg, off, rule;
+      reg = decodeuleb128 (cptr);
+      off = decodeuleb128 (listref (reg, 1));
+      cptr = listref (off, 1);
+      off = head (off);
+      reg = head (reg);
+      rule = [ reg, fdom`DW_FRAME_CFA_COL, off * daf ];
+      listset (rules, reg, rule);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_restore_extended: {
+    /* For this we have to get the initial rule set for the CIE; to do that,
+       we call this function recursively with phony location, empty rule set,
+       and empty statestack so that we can retrieve just the rules. */
+      @local reg, irules;
+      reg = decodeuleb128 (cptr);
+      cptr = listref (reg, 1);
+      reg = head (reg);
+      /* restore extended register reg */
+      irules = dw_get_cie_init_ruleset (fdom, cie);
+      listset (rules, reg, listref (irules, reg));
+      /* At this point rules should have the restored rule for reg
+	 if it was in the initial rule set. */
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_undefined: {
+      @local reg, rule;
+      reg = decodeuleb128 (cptr);
+      cptr = listref (reg, 1);
+      reg = head (reg);
+      /* set register reg to undefined */
+      rule = [ reg, -1, 0 ];
+      listset (rules, reg, rule);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_same_value: {
+      @local reg, rule;
+      reg = decodeuleb128 (cptr);
+      cptr = listref (reg, 1);
+      reg = head (reg);
+      /* set register reg to same value */
+      rule = [ reg, -2, 0 ];
+      listset (rules, reg, rule);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_register: {
+      @local reg1, reg2, rule;
+      reg1 = decodeuleb128 (cptr);
+      reg2 = decodeuleb128 (listref (reg1, 1));
+      cptr = listref (reg2, 1);
+      reg2 = head (reg2);
+      reg1 = head (reg1);
+      /* set rule for reg1 to be reg2 */
+      rule = [ reg1, reg2, 0 ];
+      listset (rules, reg1, rule);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_remember_state: {
+      /* location and curstate will remain the same. */
+      @local newstack;
+      newstack = append ([], rules);
+      for (; !isempty (statestack); statestack = tail (statestack))
+	append (newstack, head (statestack));
+      result = [ curstate, cptr, newstack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_restore_state: {
+      if (isempty (statestack)) {
+	printf ("Cannot restore state from empty stack at 0x%x\n", loc);
+	printf ("Current state is %a and stack is %a\n", curstate, statestack);
+	return result;
+      }
+      else {
+	curstate = [ loc, head (statestack) ];
+	statestack = tail (statestack);
+	result = [ curstate, cptr, statestack ];
+	return result;
+      }
+    }
+      break;
+    case fdom`DW_CFA_def_cfa: {
+      @local reg, off, rule;
+      reg = decodeuleb128 (cptr);
+      off = decodeuleb128 (listref (reg, 1));
+      cptr = listref (off, 1);
+      off = head (off);
+      reg = head (reg);
+      /* set cfa rule to contents of reg + offset */
+      rule = [ fdom`DW_FRAME_CFA_COL, reg, off ];
+      listset (rules, fdom`DW_FRAME_CFA_COL, rule);
+      curstate = [ loc, rules ];
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_def_cfa_register: {
+      @local reg, off, r, oldoff;
+      oldoff = nil;
+      reg = decodeuleb128 (cptr);
+      cptr = listref (reg, 1);
+      reg = head (reg);
+      /* define cfa rule to use new register and old offset*/
+      r = listref (rules, fdom`DW_FRAME_CFA_COL);
+
+      if (isnil (r) || isnil (listref (r, 2))) {
+	printf ("Cannot find old offset for r %a and DW_CFA_def_cfa at 0x%x\n", r, instptr);
+	result = [ curstate, cptr, statestack ];
+	return result;
+      }
+      else {
+	@local rule;
+	oldoff = listref (r, 2);
+	rule = [ fdom`DW_FRAME_CFA_COL, reg, oldoff ];
+	listset (rules, fdom`DW_FRAME_CFA_COL, rule);
+	curstate = [ loc, rules ];
+	result = [ curstate, cptr, statestack ];
+	return result;
+      }
+    }
+      break;
+    case fdom`DW_CFA_def_cfa_offset: {
+      @local reg, off, r, oldreg;
+      oldreg = nil;
+      off = decodeuleb128 (cptr);
+      cptr = listref (off, 1);
+      off = head (off);
+      /* define cfa rule to use new offset and old register*/
+      r = listref (rules, fdom`DW_FRAME_CFA_COL);
+
+      if (isnil (r) || isnil (listref (r, 1))) {
+	printf ("Cannot find old register for r %a and DW_CFA_def_cfa at 0x%x\n", r, instptr);
+	result = [ curstate, cptr, statestack ];
+	return result;
+      }
+      else {
+	@local rule;
+	oldreg = listref (r, 1);
+	rule = [ fdom`DW_FRAME_CFA_COL, oldreg, off ];
+	listset (rules, fdom`DW_FRAME_CFA_COL, rule);
+	curstate = [ loc, rules ];
+	result = [ curstate, cptr, statestack ];
+	return result;
+      }
+    }
+      break;
+    case fdom`DW_CFA_nop:
+    case fdom`DW_CFA_lo_user:
+    case fdom`DW_CFA_low_user:
+    case fdom`DW_CFA_def_cfa_expression:
+    case fdom`DW_CFA_expression:
+    case fdom`DW_CFA_cfa_offset_extended_sf:
+    case fdom`DW_CFA_def_cfa_sf:
+    case fdom`DW_CFA_def_cfa_offset_sf:
+    case fdom`DW_CFA_val_offset:
+    case fdom`DW_CFA_val_offset_sf:
+    case fdom`DW_CFA_val_expression:
+    case fdom`DW_CFA_MIPS_advance_loc8:
+    case fdom`DW_CFA_GNU_window_save:
+      break;
+    case fdom`DW_CFA_GNU_args_size: {
+      @local gnargsize;
+      gnargsize = decodeuleb128 (cptr);
+      cptr = listref (gnargsize, 1);
+      gnargsize = head (gnargsize);
+      printf ("In DW_CFA_GNU_args_size gnargsize is 0x%x and cptr is %d: 0x%x\n",
+	      gnargsize, cptr, cptr);
+      result = [ curstate, cptr, statestack ];
+      return result;
+    }
+      break;
+    case fdom`DW_CFA_GNU_negative_offset_extended:
+    case fdom`DW_CFA_high_user:
+    default:
+      break;
+    }
+  }
+  default:
+    break;
+  }
+  return nil;
+}
+
+@define dw_cie_afs (dwdom, cie)
+{
+  @local aug, caf, daf, result;
+  aug = advance_strptr (dwdom, (char *) ((unsigned int) cie + sizeof (*cie)));
+  caf = decodeuleb128 (listref (aug, 1));
+  daf = decodesleb128 (listref (caf, 1));
+  result = [ head (caf), head (daf) ];
+  return result;
+}
+
+@define dw_get_cie_init_ruleset (bdrec, cie)
+{
+  @local aug, caf, daf, instptr, result, rvec, asize;
+  @local fdom;
+  fdom = bdrec.debug_frame;
+  asize = bdrec.addrsize;
+  if (asize == 4)
+    rvec = mklist (9);
+  else if (asize == 8)
+    rvec = mklist (17);
+  aug = advance_strptr (fdom, (char *) ((unsigned int) cie + sizeof (*cie)));
+  caf = decodeuleb128 (listref (aug, 1));
+  daf = decodesleb128 (listref (caf, 1));
+  instptr = (unsigned char *) (listref (daf, 1) + 1);
+  result = dw_process_one_fde_inst (bdrec, instptr, cie, [0, rvec], []);
+  while (!isnil (result)) {
+    rvec = listref (head (result), 1);
+    result = dw_process_one_fde_inst (bdrec, listref (result, 1), cie,
+				      listref (result, 0),
+				      listref (result, 2));
+  }
+  return rvec;
+}
+
+@define dw_build_linetab (bdrec)
+{
+  @local base, result, temp, last, vec, len, i, rl;
+  @local linedom;
+  @local m, r, rbeg, rend, inrange;
+  if (!isnil (bdrec.linetable))
+    return bdrec.linetable;
+  linedom = bdrec.debug_line;
+  m = linedom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  base = {linedom} 0;
+  result = [];
+  last = [0, 0, 0];
+  do {
+    temp = dw_get_cu_linenumber_info (linedom, base);
+    base = listref (temp, length (temp) - 1);
+    if (!isnil (listref (temp, 5))
+	&& length (listref (temp, 5)) != 0) { /* don't append empty list */
+      /* if last was a noncontiguous address range, shorten it to be in
+	 keeping with temp. */
+      if (listref (last, 2) > listref (temp, 1))
+	listset (last, 2, listref (temp, 1));
+      append (result, temp);
+      last = temp;
+    }
+  }
+  while (inrange (base));
+  return result;
+}
+
+@define dw_build_frametab (bdrec)
+{
+  @local cptr, cie, fde, done, result, fentry, fl, rv, i, asize;
+  @local f, vec;
+  @local fdom;
+  @local m, r, rbeg, rend, inrange;
+  if (!isnil (bdrec.frametable))
+    return bdrec.frametable;
+  fdom = bdrec.debug_frame;
+  m = fdom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  f = nil;
+  asize = bdrec.addrsize;
+  result = [];
+  cptr = {fdom} 0;
+  done = {fdom} 0;
+  while (inrange (cptr) && !done) {
+    //if (asize == 4)
+      cie = (struct dw_cie_struct *) cptr;
+      //else if (asize == 8)
+      //  cie = (struct dw64_cie_struct *) cptr;
+    /* Now accumulate all the fde's for this cie */
+    if (asize == 4)
+      fde = (struct dw_fde_struct *) (cptr + cie->len + sizeof (cie->len));
+    else if (asize == 8)
+      fde = (struct dw64_fde_struct *) (cptr + cie->len + sizeof (cie->len));
+    while (!done) {
+      //if ( (asize == 4 && fde->cie_off == 0xffffffff)
+      //	   || (asize == 8 && fde->cie_off == 0xffffffffffffffff)){
+      if (fde->cie_off == 0xffffffff) {
+	cptr  = (unsigned int) fde;
+	break;
+      }
+      else {
+	fentry = [fde->init_loc, fde->init_loc + fde->addr_range, fde, fde->len];
+// 	//if (asize == 4)
+// 	  append (fentry, fde->len);
+// 	  //else if (asize == 8)
+// 	  //append (fentry, fde->real_len);
+// 	  //printf ("0x%x\t0x%x\n", listref (fentry, 0), listref (fentry, 1));
+	append (result, fentry);
+      }
+      //if (asize == 4)
+	fde = (unsigned long) fde + fde->len + sizeof (fde->len);
+	//else if (asize == 8)
+	//fde = (unsigned long) fde + fde->real_len
+	// + sizeof (fde->len) + sizeof (fde->real_len);
+	if (!inrange ((char *) fde)) {
+	done = 1; /* We've run out of room. No point in setting cie to fde */
+	break;
+      }
+      if (asize == 4)
+	fde = (struct dw_fde_struct *) fde;
+      else if (asize == 8)
+	fde = (struct dw64_fde_struct *) fde;
+    }
+  }
+  sort (result, @lambda (a, b) {if (listref (a, 0) < listref (b, 0)) return -1;
+	  else if (listref (a, 0) > listref (b, 0)) return 1;
+	  else return 0;});
+  bdrec.frametable = result;
+  return result;
+}
+
+@define dw_get_abbrev_decl (dwdom, ptr)
+{
+  @local acode, cptr;
+  cptr = {dwdom} ptr;
+  acode = decodeuleb128 (cptr);
+  cptr = listref (acode, 1);
+  acode = head (acode);
+  printf ("acode = 0x%x, cptr = 0x%x\n", acode, cptr);
+  return [acode, cptr];
+}
+
+@define dw_show_tag (dwdom, tag)
+{
+  @local child;
+  child = listref (tag, 1);
+  tag = head (tag);
+  switch (tag) {
+  case dwdom`DW_TAG_array_type:
+    printf ("DW_TAG_array_type\t");
+    break;
+  case dwdom`DW_TAG_class_type:
+    printf ("DW_TAG_class_type\t");
+    break;
+  case dwdom`DW_TAG_entry_point:
+    printf ("DW_TAG_entry_point\t");
+    break;
+  case dwdom`DW_TAG_enumeration_type:
+    printf ("DW_TAG_enumeration_type\t");
+    break;
+  case dwdom`DW_TAG_formal_parameter:
+    printf ("DW_TAG_formal_parameter\t");
+    break;
+  case dwdom`DW_TAG_imported_declaration:
+    printf ("DW_TAG_imported_declaration\t");
+    break;
+  case dwdom`DW_TAG_label:
+    printf ("DW_TAG_label\t");
+    break;
+  case dwdom`DW_TAG_lexical_block:
+    printf ("DW_TAG_lexical_block\t");
+    break;
+  case dwdom`DW_TAG_member:
+    printf ("DW_TAG_member\t");
+    break;
+  case dwdom`DW_TAG_pointer_type:
+    printf ("DW_TAG_pointer_type\t");
+    break;
+  case dwdom`DW_TAG_reference_type:
+    printf ("DW_TAG_reference_type\t");
+    break;
+  case dwdom`DW_TAG_compile_unit:
+    printf ("DW_TAG_compile_unit\t");
+    break;
+  case dwdom`DW_TAG_string_type:
+    printf ("DW_TAG_string_type\t");
+    break;
+  case dwdom`DW_TAG_structure_type:
+    printf ("DW_TAG_structure_type\t");
+    break;
+  case dwdom`DW_TAG_subroutine_type:
+    printf ("DW_TAG_subroutine_type\t");
+    break;
+  case dwdom`DW_TAG_typedef:
+    printf ("DW_TAG_typedef\t");
+    break;
+  case dwdom`DW_TAG_union_type:
+    printf ("DW_TAG_union_type\t");
+    break;
+  case dwdom`DW_TAG_unspecified_parameters:
+    printf ("DW_TAG_unspecified_parameters\t");
+    break;
+  case dwdom`DW_TAG_variant:
+    printf ("DW_TAG_variant\t");
+    break;
+  case dwdom`DW_TAG_common_block:
+    printf ("DW_TAG_common_block\t");
+    break;
+  case dwdom`DW_TAG_common_inclusion:
+    printf ("DW_TAG_common_inclusion\t");
+    break;
+  case dwdom`DW_TAG_inheritance:
+    printf ("DW_TAG_inheritance\t");
+    break;
+  case dwdom`DW_TAG_inlined_subroutine:
+    printf ("DW_TAG_inlined_subroutine\t");
+    break;
+  case dwdom`DW_TAG_module:
+    printf ("DW_TAG_module\t");
+    break;
+  case dwdom`DW_TAG_ptr_to_member_type:
+    printf ("DW_TAG_ptr_to_member_type\t");
+    break;
+  case dwdom`DW_TAG_set_type:
+    printf ("DW_TAG_set_type\t");
+    break;
+  case dwdom`DW_TAG_subrange_type:
+    printf ("DW_TAG_subrange_type\t");
+    break;
+  case dwdom`DW_TAG_with_stmt:
+    printf ("DW_TAG_with_stmt\t");
+    break;
+  case dwdom`DW_TAG_access_declaration:
+    printf ("DW_TAG_access_declaration\t");
+    break;
+  case dwdom`DW_TAG_base_type:
+    printf ("DW_TAG_base_type\t");
+    break;
+  case dwdom`DW_TAG_catch_block:
+    printf ("DW_TAG_catch_block\t");
+    break;
+  case dwdom`DW_TAG_const_type:
+    printf ("DW_TAG_const_type\t");
+    break;
+  case dwdom`DW_TAG_constant:
+    printf ("DW_TAG_constant\t");
+    break;
+  case dwdom`DW_TAG_enumerator:
+    printf ("DW_TAG_enumerator\t");
+    break;
+  case dwdom`DW_TAG_file_type:
+    printf ("DW_TAG_file_type\t");
+    break;
+  case dwdom`DW_TAG_friend:
+    printf ("DW_TAG_friend\t");
+    break;
+  case dwdom`DW_TAG_namelist:
+    printf ("DW_TAG_namelist\t");
+    break;
+  case dwdom`DW_TAG_namelist_item:
+    printf ("DW_TAG_namelist_item\t");
+    break;
+  case dwdom`DW_TAG_namelist_items:
+    printf ("DW_TAG_namelist_items\t");
+    break;
+  case dwdom`DW_TAG_packed_type:
+    printf ("DW_TAG_packed_type\t");
+    break;
+  case dwdom`DW_TAG_subprogram:
+    printf ("DW_TAG_subprogram\t");
+    break;
+  case dwdom`DW_TAG_template_type_parameter:
+    printf ("DW_TAG_template_type_parameter\t");
+    break;
+  case dwdom`DW_TAG_template_type_param:
+    printf ("DW_TAG_template_type_param\t");
+    break;
+  case dwdom`DW_TAG_template_value_parameter:
+    printf ("DW_TAG_template_value_parameter\t");
+    break;
+  case dwdom`DW_TAG_template_value_param:
+    printf ("DW_TAG_template_value_param\t");
+    break;
+  case dwdom`DW_TAG_thrown_type:
+    printf ("DW_TAG_thrown_type\t");
+    break;
+  case dwdom`DW_TAG_try_block:
+    printf ("DW_TAG_try_block\t");
+    break;
+  case dwdom`DW_TAG_variant_part:
+    printf ("DW_TAG_variant_part\t");
+    break;
+  case dwdom`DW_TAG_variable:
+    printf ("DW_TAG_variable\t");
+    break;
+  case dwdom`DW_TAG_volatile_type:
+    printf ("DW_TAG_volatile_type\t");
+    break;
+  case dwdom`DW_TAG_dwarf_procedure:
+    printf ("DW_TAG_dwarf_procedure\t");
+    break;
+  case dwdom`DW_TAG_restrict_type:
+    printf ("DW_TAG_restrict_type\t");
+    break;
+  case dwdom`DW_TAG_interface_type:
+    printf ("DW_TAG_interface_type\t");
+    break;
+  case dwdom`DW_TAG_namespace:
+    printf ("DW_TAG_namespace\t");
+    break;
+  case dwdom`DW_TAG_imported_module:
+    printf ("DW_TAG_imported_module\t");
+    break;
+  case dwdom`DW_TAG_unspecified_type:
+    printf ("DW_TAG_unspecified_type\t");
+    break;
+  case dwdom`DW_TAG_partial_unit:
+    printf ("DW_TAG_partial_unit\t");
+    break;
+  case dwdom`DW_TAG_imported_unit:
+    printf ("DW_TAG_imported_unit\t");
+    break;
+  case dwdom`DW_TAG_mutable_type:
+    printf ("DW_TAG_mutable_type\t");
+    break;
+  case dwdom`DW_TAG_condition:
+    printf ("DW_TAG_condition\t");
+    break;
+  case dwdom`DW_TAG_shared_type:
+    printf ("DW_TAG_shared_type\t");
+    break;
+  case dwdom`DW_TAG_lo_user:
+    printf ("DW_TAG_lo_user\t");
+    break;
+  case dwdom`DW_TAG_MIPS_loop:
+    printf ("DW_TAG_MIPS_loop\t");
+    break;
+  case dwdom`DW_TAG_HP_array_descriptor:
+    printf ("DW_TAG_HP_array_descriptor\t");
+    break;
+  case dwdom`DW_TAG_format_label:
+    printf ("DW_TAG_format_label\t");
+    break;
+  case dwdom`DW_TAG_function_template:
+    printf ("DW_TAG_function_template\t");
+    break;
+  case dwdom`DW_TAG_class_template:
+    printf ("DW_TAG_class_template\t");
+    break;
+  case dwdom`DW_TAG_GNU_BINCL:
+    printf ("DW_TAG_GNU_BINCL\t");
+    break;
+  case dwdom`DW_TAG_GNU_EINCL:
+    printf ("DW_TAG_GNU_EINCL\t");
+    break;
+  case dwdom`DW_TAG_ALTIUM_circ_type:
+    printf ("DW_TAG_ALTIUM_circ_type\t");
+    break;
+  case dwdom`DW_TAG_ALTIUM_mwa_circ_type:
+    printf ("DW_TAG_ALTIUM_mwa_circ_type\t");
+    break;
+  case dwdom`DW_TAG_ALTIUM_rev_carry_type:
+    printf ("DW_TAG_ALTIUM_rev_carry_type\t");
+    break;
+  case dwdom`DW_TAG_ALTIUM_rom:
+    printf ("DW_TAG_ALTIUM_rom\t");
+    break;
+  case dwdom`DW_TAG_upc_shared_type:
+    printf ("DW_TAG_upc_shared_type\t");
+    break;
+  case dwdom`DW_TAG_upc_strict_type:
+    printf ("DW_TAG_upc_strict_type\t");
+    break;
+  case dwdom`DW_TAG_upc_relaxed_type:
+    printf ("DW_TAG_upc_relaxed_type\t");
+    break;
+  case dwdom`DW_TAG_PGI_kanji_type:
+    printf ("DW_TAG_PGI_kanji_type\t");
+    break;
+  case dwdom`DW_TAG_PGI_interface_block:
+    printf ("DW_TAG_PGI_interface_block\t");
+    break;
+  case dwdom`DW_TAG_hi_user:
+    printf ("DW_TAG_hi_user\t");
+    break;
+  default:
+    printf ("reached default in TAG switch for 0x%x\n", tag);
+    break;
+  }
+  if (child)
+    printf ("DW_children_yes\n");
+  else
+    printf ("DW_children_no\n");
+}
+
+@define dw_show_att_spec (dwdom, spec)
+{
+  @local name, form;
+  name = head (spec);
+  form = listref (spec, 1);
+  if (!name && !form)
+    return;
+  switch (name) {
+  case dwdom`DW_AT_sibling:
+    printf ("DW_AT_sibling\t");
+    break;
+  case dwdom`DW_AT_location:
+    printf ("DW_AT_location\t");
+    break;
+  case dwdom`DW_AT_name:
+    printf ("DW_AT_name\t");
+    break;
+  case dwdom`DW_AT_ordering:
+    printf ("DW_AT_ordering\t");
+    break;
+  case dwdom`DW_AT_subscr_data:
+    printf ("DW_AT_subscr_data\t");
+    break;
+  case dwdom`DW_AT_byte_size:
+    printf ("DW_AT_byte_size\t");
+    break;
+  case dwdom`DW_AT_bit_offset:
+    printf ("DW_AT_bit_offset\t");
+    break;
+  case dwdom`DW_AT_bit_size:
+    printf ("DW_AT_bit_size\t");
+    break;
+  case dwdom`DW_AT_element_list:
+    printf ("DW_AT_element_list\t");
+    break;
+  case dwdom`DW_AT_stmt_list:
+    printf ("DW_AT_stmt_list\t");
+    break;
+  case dwdom`DW_AT_low_pc:
+    printf ("DW_AT_low_pc\t");
+    break;
+  case dwdom`DW_AT_high_pc:
+    printf ("DW_AT_high_pc\t");
+    break;
+  case dwdom`DW_AT_language:
+    printf ("DW_AT_language\t");
+    break;
+  case dwdom`DW_AT_member:
+    printf ("DW_AT_member\t");
+    break;
+  case dwdom`DW_AT_discr:
+    printf ("DW_AT_discr\t");
+    break;
+  case dwdom`DW_AT_discr_value:
+    printf ("DW_AT_discr_value\t");
+    break;
+  case dwdom`DW_AT_visibility:
+    printf ("DW_AT_visibility\t");
+    break;
+  case dwdom`DW_AT_import:
+    printf ("DW_AT_import\t");
+    break;
+  case dwdom`DW_AT_string_length:
+    printf ("DW_AT_string_length\t");
+    break;
+  case dwdom`DW_AT_common_reference:
+    printf ("DW_AT_common_reference\t");
+    break;
+  case dwdom`DW_AT_comp_dir:
+    printf ("DW_AT_comp_dir\t");
+    break;
+  case dwdom`DW_AT_const_value:
+    printf ("DW_AT_const_value\t");
+    break;
+  case dwdom`DW_AT_containing_type:
+    printf ("DW_AT_containing_type\t");
+    break;
+  case dwdom`DW_AT_default_value:
+    printf ("DW_AT_default_value\t");
+    break;
+  case dwdom`DW_AT_inline:
+    printf ("DW_AT_inline\t");
+    break;
+  case dwdom`DW_AT_is_optional:
+    printf ("DW_AT_is_optional\t");
+    break;
+  case dwdom`DW_AT_lower_bound:
+    printf ("DW_AT_lower_bound\t");
+    break;
+  case dwdom`DW_AT_producer:
+    printf ("DW_AT_producer\t");
+    break;
+  case dwdom`DW_AT_prototyped:
+    printf ("DW_AT_prototyped\t");
+    break;
+  case dwdom`DW_AT_return_addr:
+    printf ("DW_AT_return_addr\t");
+    break;
+  case dwdom`DW_AT_start_scope:
+    printf ("DW_AT_start_scope\t");
+    break;
+  case dwdom`DW_AT_bit_stride:
+    printf ("DW_AT_bit_stride\t");
+    break;
+  case dwdom`DW_AT_stride_size:
+    printf ("DW_AT_stride_size\t");
+    break;
+  case dwdom`DW_AT_upper_bound:
+    printf ("DW_AT_upper_bound\t");
+    break;
+  case dwdom`DW_AT_abstract_origin:
+    printf ("DW_AT_abstract_origin\t");
+    break;
+  case dwdom`DW_AT_accessibility:
+    printf ("DW_AT_accessibility\t");
+    break;
+  case dwdom`DW_AT_address_class:
+    printf ("DW_AT_address_class\t");
+    break;
+  case dwdom`DW_AT_artificial:
+    printf ("DW_AT_artificial\t");
+    break;
+  case dwdom`DW_AT_base_types:
+    printf ("DW_AT_base_types\t");
+    break;
+  case dwdom`DW_AT_calling_convention:
+    printf ("DW_AT_calling_convention\t");
+    break;
+  case dwdom`DW_AT_count:
+    printf ("DW_AT_count\t");
+    break;
+  case dwdom`DW_AT_data_member_location:
+    printf ("DW_AT_data_member_location\t");
+    break;
+  case dwdom`DW_AT_decl_column:
+    printf ("DW_AT_decl_column\t");
+    break;
+  case dwdom`DW_AT_decl_file:
+    printf ("DW_AT_decl_file\t");
+    break;
+  case dwdom`DW_AT_decl_line:
+    printf ("DW_AT_decl_line\t");
+    break;
+  case dwdom`DW_AT_declaration:
+    printf ("DW_AT_declaration\t");
+    break;
+  case dwdom`DW_AT_discr_list:
+    printf ("DW_AT_discr_list\t");
+    break;
+  case dwdom`DW_AT_encoding:
+    printf ("DW_AT_encoding\t");
+    break;
+  case dwdom`DW_AT_external:
+    printf ("DW_AT_external\t");
+    break;
+  case dwdom`DW_AT_frame_base:
+    printf ("DW_AT_frame_base\t");
+    break;
+  case dwdom`DW_AT_friend:
+    printf ("DW_AT_friend\t");
+    break;
+  case dwdom`DW_AT_identifier_case:
+    printf ("DW_AT_identifier_case\t");
+    break;
+  case dwdom`DW_AT_macro_info:
+    printf ("DW_AT_macro_info\t");
+    break;
+  case dwdom`DW_AT_namelist_item:
+    printf ("DW_AT_namelist_item\t");
+    break;
+  case dwdom`DW_AT_priority:
+    printf ("DW_AT_priority\t");
+    break;
+  case dwdom`DW_AT_segment:
+    printf ("DW_AT_segment\t");
+    break;
+  case dwdom`DW_AT_specification:
+    printf ("DW_AT_specification\t");
+    break;
+  case dwdom`DW_AT_static_link:
+    printf ("DW_AT_static_link\t");
+    break;
+  case dwdom`DW_AT_type:
+    printf ("DW_AT_type\t");
+    break;
+  case dwdom`DW_AT_use_location:
+    printf ("DW_AT_use_location\t");
+    break;
+  case dwdom`DW_AT_variable_parameter:
+    printf ("DW_AT_variable_parameter\t");
+    break;
+  case dwdom`DW_AT_virtuality:
+    printf ("DW_AT_virtuality\t");
+    break;
+  case dwdom`DW_AT_vtable_elem_location:
+    printf ("DW_AT_vtable_elem_location\t");
+    break;
+  case dwdom`DW_AT_allocated:
+    printf ("DW_AT_allocated\t");
+    break;
+  case dwdom`DW_AT_associated:
+    printf ("DW_AT_associated\t");
+    break;
+  case dwdom`DW_AT_data_location:
+    printf ("DW_AT_data_location\t");
+    break;
+  case dwdom`DW_AT_byte_stride:
+    printf ("DW_AT_byte_stride\t");
+    break;
+  case dwdom`DW_AT_stride:
+    printf ("DW_AT_stride\t");
+    break;
+  case dwdom`DW_AT_entry_pc:
+    printf ("DW_AT_entry_pc\t");
+    break;
+  case dwdom`DW_AT_use_UTF8:
+    printf ("DW_AT_use_UTF8\t");
+    break;
+  case dwdom`DW_AT_extension:
+    printf ("DW_AT_extension\t");
+    break;
+  case dwdom`DW_AT_ranges:
+    printf ("DW_AT_ranges\t");
+    break;
+  case dwdom`DW_AT_trampoline:
+    printf ("DW_AT_trampoline\t");
+    break;
+  case dwdom`DW_AT_call_column:
+    printf ("DW_AT_call_column\t");
+    break;
+  case dwdom`DW_AT_call_file:
+    printf ("DW_AT_call_file\t");
+    break;
+  case dwdom`DW_AT_call_line:
+    printf ("DW_AT_call_line\t");
+    break;
+  case dwdom`DW_AT_description:
+    printf ("DW_AT_description\t");
+    break;
+  case dwdom`DW_AT_binary_scale:
+    printf ("DW_AT_binary_scale\t");
+    break;
+  case dwdom`DW_AT_decimal_scale:
+    printf ("DW_AT_decimal_scale\t");
+    break;
+  case dwdom`DW_AT_small:
+    printf ("DW_AT_small\t");
+    break;
+  case dwdom`DW_AT_decimal_sign:
+    printf ("DW_AT_decimal_sign\t");
+    break;
+  case dwdom`DW_AT_digit_count:
+    printf ("DW_AT_digit_count\t");
+    break;
+  case dwdom`DW_AT_picture_string:
+    printf ("DW_AT_picture_string\t");
+    break;
+  case dwdom`DW_AT_mutable:
+    printf ("DW_AT_mutable\t");
+    break;
+  case dwdom`DW_AT_threads_scaled:
+    printf ("DW_AT_threads_scaled\t");
+    break;
+  case dwdom`DW_AT_explicit:
+    printf ("DW_AT_explicit\t");
+    break;
+  case dwdom`DW_AT_object_pointer:
+    printf ("DW_AT_object_pointer\t");
+    break;
+  case dwdom`DW_AT_endianity:
+    printf ("DW_AT_endianity\t");
+    break;
+  case dwdom`DW_AT_elemental:
+    printf ("DW_AT_elemental\t");
+    break;
+  case dwdom`DW_AT_pure:
+    printf ("DW_AT_pure\t");
+    break;
+  case dwdom`DW_AT_recursive:
+    printf ("DW_AT_recursive\t");
+    break;
+  case dwdom`DW_AT_HP_block_index:
+    printf ("DW_AT_HP_block_index\t");
+    break;
+  case dwdom`DW_AT_lo_user:
+    printf ("DW_AT_lo_user\t");
+    break;
+  case dwdom`DW_AT_MIPS_fde:
+    printf ("DW_AT_MIPS_fde\t");
+    break;
+  case dwdom`DW_AT_MIPS_loop_begin:
+    printf ("DW_AT_MIPS_loop_begin\t");
+    break;
+  case dwdom`DW_AT_MIPS_tail_loop_begin:
+    printf ("DW_AT_MIPS_tail_loop_begin\t");
+    break;
+  case dwdom`DW_AT_MIPS_epilog_begin:
+    printf ("DW_AT_MIPS_epilog_begin\t");
+    break;
+  case dwdom`DW_AT_MIPS_loop_unroll_factor:
+    printf ("DW_AT_MIPS_loop_unroll_factor\t");
+    break;
+  case dwdom`DW_AT_MIPS_software_pipeline_depth:
+    printf ("DW_AT_MIPS_software_pipeline_depth\t");
+    break;
+  case dwdom`DW_AT_MIPS_linkage_name:
+    printf ("DW_AT_MIPS_linkage_name\t");
+    break;
+  case dwdom`DW_AT_MIPS_stride:
+    printf ("DW_AT_MIPS_stride\t");
+    break;
+  case dwdom`DW_AT_MIPS_abstract_name:
+    printf ("DW_AT_MIPS_abstract_name\t");
+    break;
+  case dwdom`DW_AT_MIPS_clone_origin:
+    printf ("DW_AT_MIPS_clone_origin\t");
+    break;
+  case dwdom`DW_AT_MIPS_has_inlines:
+    printf ("DW_AT_MIPS_has_inlines\t");
+    break;
+  case dwdom`DW_AT_MIPS_stride_byte:
+    printf ("DW_AT_MIPS_stride_byte\t");
+    break;
+  case dwdom`DW_AT_MIPS_stride_elem:
+    printf ("DW_AT_MIPS_stride_elem\t");
+    break;
+  case dwdom`DW_AT_MIPS_ptr_dopetype:
+    printf ("DW_AT_MIPS_ptr_dopetype\t");
+    break;
+  case dwdom`DW_AT_MIPS_allocatable_dopetype:
+    printf ("DW_AT_MIPS_allocatable_dopetype\t");
+    break;
+  case dwdom`DW_AT_MIPS_assumed_shape_dopetype:
+    printf ("DW_AT_MIPS_assumed_shape_dopetype\t");
+    break;
+  case dwdom`DW_AT_MIPS_assumed_size:
+    printf ("DW_AT_MIPS_assumed_size\t");
+    break;
+  case dwdom`DW_AT_HP_unmodifiable:
+    printf ("DW_AT_HP_unmodifiable\t");
+    break;
+  case dwdom`DW_AT_HP_actuals_stmt_list:
+    printf ("DW_AT_HP_actuals_stmt_list\t");
+    break;
+  case dwdom`DW_AT_HP_proc_per_section:
+    printf ("DW_AT_HP_proc_per_section\t");
+    break;
+  case dwdom`DW_AT_HP_raw_data_ptr:
+    printf ("DW_AT_HP_raw_data_ptr\t");
+    break;
+  case dwdom`DW_AT_HP_pass_by_reference:
+    printf ("DW_AT_HP_pass_by_reference\t");
+    break;
+  case dwdom`DW_AT_HP_opt_level:
+    printf ("DW_AT_HP_opt_level\t");
+    break;
+  case dwdom`DW_AT_HP_prof_version_id:
+    printf ("DW_AT_HP_prof_version_id\t");
+    break;
+  case dwdom`DW_AT_HP_opt_flags:
+    printf ("DW_AT_HP_opt_flags\t");
+    break;
+  case dwdom`DW_AT_HP_cold_region_low_pc:
+    printf ("DW_AT_HP_cold_region_low_pc\t");
+    break;
+  case dwdom`DW_AT_HP_cold_region_high_pc:
+    printf ("DW_AT_HP_cold_region_high_pc\t");
+    break;
+  case dwdom`DW_AT_HP_all_variables_modifiable:
+    printf ("DW_AT_HP_all_variables_modifiable\t");
+    break;
+  case dwdom`DW_AT_HP_linkage_name:
+    printf ("DW_AT_HP_linkage_name\t");
+    break;
+  case dwdom`DW_AT_HP_prof_flags:
+    printf ("DW_AT_HP_prof_flags\t");
+    break;
+  case dwdom`DW_AT_sf_names:
+    printf ("DW_AT_sf_names\t");
+    break;
+  case dwdom`DW_AT_src_info:
+    printf ("DW_AT_src_info\t");
+    break;
+  case dwdom`DW_AT_mac_info:
+    printf ("DW_AT_mac_info\t");
+    break;
+  case dwdom`DW_AT_src_coords:
+    printf ("DW_AT_src_coords\t");
+    break;
+  case dwdom`DW_AT_body_begin:
+    printf ("DW_AT_body_begin\t");
+    break;
+  case dwdom`DW_AT_body_end:
+    printf ("DW_AT_body_end\t");
+    break;
+  case dwdom`DW_AT_GNU_vector:
+    printf ("DW_AT_GNU_vector\t");
+    break;
+  case dwdom`DW_AT_VMS_rtnbeg_pd_address:
+    printf ("DW_AT_VMS_rtnbeg_pd_address\t");
+    break;
+  case dwdom`DW_AT_ALTIUM_loclist:
+    printf ("DW_AT_ALTIUM_loclist\t");
+    break;
+  case dwdom`DW_AT_PGI_lbase:
+    printf ("DW_AT_PGI_lbase\t");
+    break;
+  case dwdom`DW_AT_PGI_soffset:
+    printf ("DW_AT_PGI_soffset\t");
+    break;
+  case dwdom`DW_AT_PGI_lstride:
+    printf ("DW_AT_PGI_lstride\t");
+    break;
+  case dwdom`DW_AT_upc_threads_scaled:
+    printf ("DW_AT_upc_threads_scaled\t");
+    break;
+  case dwdom`DW_AT_hi_user:
+    printf ("DW_AT_hi_user\t");
+    break;
+  default:
+    printf ("reached default in AT name switch for 0x%x.\n", name);
+    break;
+  }
+
+  switch (form) {
+  case dwdom`DW_FORM_addr:
+    printf ("DW_FORM_addr\n");
+    break;
+  case dwdom`DW_FORM_block2:
+    printf ("DW_FORM_block2\n");
+    break;
+  case dwdom`DW_FORM_block4:
+    printf ("DW_FORM_block4\n");
+    break;
+  case dwdom`DW_FORM_data2:
+    printf ("DW_FORM_data2\n");
+    break;
+  case dwdom`DW_FORM_data4:
+    printf ("DW_FORM_data4\n");
+    break;
+  case dwdom`DW_FORM_data8:
+    printf ("DW_FORM_data8\n");
+    break;
+  case dwdom`DW_FORM_string:
+    printf ("DW_FORM_string\n");
+    break;
+  case dwdom`DW_FORM_block:
+    printf ("DW_FORM_block\n");
+    break;
+  case dwdom`DW_FORM_block1:
+    printf ("DW_FORM_block1\n");
+    break;
+  case dwdom`DW_FORM_data1:
+    printf ("DW_FORM_data1\n");
+    break;
+  case dwdom`DW_FORM_flag:
+    printf ("DW_FORM_flag\n");
+    break;
+  case dwdom`DW_FORM_sdata:
+    printf ("DW_FORM_sdata\n");
+    break;
+  case dwdom`DW_FORM_strp:
+    printf ("DW_FORM_strp\n");
+    break;
+  case dwdom`DW_FORM_udata:
+    printf ("DW_FORM_udata\n");
+    break;
+  case dwdom`DW_FORM_ref_addr:
+    printf ("DW_FORM_ref_addr\n");
+    break;
+  case dwdom`DW_FORM_ref1:
+    printf ("DW_FORM_ref1\n");
+    break;
+  case dwdom`DW_FORM_ref2:
+    printf ("DW_FORM_ref2\n");
+    break;
+  case dwdom`DW_FORM_ref4:
+    printf ("DW_FORM_ref4\n");
+    break;
+  case dwdom`DW_FORM_ref8:
+    printf ("DW_FORM_ref8\n");
+    break;
+  case dwdom`DW_FORM_ref_udata:
+    printf ("DW_FORM_ref_udata\n");
+    break;
+  case dwdom`DW_FORM_indirect:
+    printf ("DW_FORM_indirect\n");
+    break;
+  default:
+    printf ("reached default in FORM switch for 0x%x.\n", form);
+    break;
+  }
+}
+
+@define test_atts (dwdom, ptr)
+{
+  @local abcode, tag, atspec, cptr, name, form, cnt1, cnt2;
+  cptr = {dwdom} ptr;
+  abcode = dw_get_abbrev_decl (dwdom, cptr);
+  cptr = listref (abcode, 1);
+  abcode = head (abcode);
+  cnt1 = 0;
+  tag = nil;
+  while (abcode && cnt1 < 500) {
+    cnt1++;
+    cnt2 = 0;
+    tag = dw_get_tag (dwdom, cptr);
+    cptr = listref (tag, 2);
+    do {
+      cnt2++;
+      atspec = dw_get_att_spec (dwdom, cptr);
+      cptr = listref (atspec, 2);
+      form = listref (atspec, 1);
+      name = listref (atspec, 0);
+    } while ( (name || form) && cnt2 < 500);
+    abcode = dw_get_abbrev_decl (dwdom, cptr);
+    cptr = listref (abcode, 1);
+    abcode = head (abcode);
+    if (cnt2 == 500)
+      printf ("cnt2 reached 500 in do loop.\n");
+  }
+  if (cnt1 == 500)
+    printf ("cnt1 reached 500 in while loop.\n");
+  return [abcode, tag, cptr ];
+}
+
+@define show_cu_hdr (dwdom, addr)
+{
+  @local cu;
+  cu = (struct dw_cu_hdr *) {dwdom} addr;
+  printf ("cu hdr: len 0x%x version %d abbrev off 0x%x addr_size %d\n",
+	  cu->len, cu->version, cu->abbroff, cu->addr_size);
+}
+
+@define show_cu_hdr_aranges (ardom, infodom)
+{
+  @local arhdr, curaddr, asize, alen, rem, artuple, hdrcnt;
+  @local m, r, rbeg, rend, inrange;
+  hdrcnt = {ardom}0;
+  curaddr = {ardom}0x0;
+  alen = {ardom}0x0;
+  arhdr = (struct arangehdr *)curaddr;
+  show_cu_hdr (infodom, {infodom}(arhdr->di_off));
+  asize = arhdr->addr_size;
+  /* The DWARF 2 spec (sec. 7.20) says that the first (offset, size) tuple
+     following the header begins at a multiple of the size of a single tuple
+     (twice the size of an address). */
+  curaddr += sizeof (struct ardom`arangehdr);
+  rem = curaddr % (2 * asize);
+  if (rem)
+    curaddr += (2 * asize - rem);
+  if (asize == 4)
+    artuple = (struct arange32 *)curaddr;
+  else if (asize == 8)
+    artuple = (struct arange64 *)curaddr;
+  else {
+    printf ("unsupported address size: %d\n", asize);
+    return nil;
+  }
+  m = ardom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  if (!inrange (artuple))
+    return nil;
+  while (artuple->ar_start || artuple->ar_len) {
+    while (artuple->ar_start || artuple->ar_len) {
+      printf ("ar_start = 0x%x:\tar_len = 0x%x:\n",
+	      artuple->ar_start, artuple->ar_len);
+      artuple++;
+      if (!inrange (artuple)) {
+	printf ("unmapped address at 0x%x\n", artuple);
+	return;
+      }
+    }
+    /* advance past 0 offset and length indicating end of this arange set.*/
+    artuple++;
+    arhdr = (struct arangehdr *)artuple;
+    hdrcnt ++;
+    if (inrange (arhdr)) {
+      show_cu_hdr (infodom, {infodom}(arhdr->di_off));
+    }
+    curaddr = (unsigned int) arhdr;
+    curaddr += sizeof (struct ardom`arangehdr);
+    rem = curaddr % (2 * asize);
+    if (rem)
+      curaddr += (2 * asize - rem);
+    if (asize == 4)
+      artuple = (struct arange32 *)curaddr;
+    else if (asize == 8)
+      artuple = (struct arange64 *)curaddr;
+    if (!inrange (artuple))
+      break;
+  }
+}
+
+@define dw_get_att_spec (dwdom, ptr)
+{
+  @local name, form, cptr;
+  cptr = decodeuleb128 (ptr);
+  name = head (cptr);
+  cptr = listref (cptr, 1);
+  cptr = decodeuleb128 (cptr);
+  form = head (cptr);
+  cptr = listref (cptr, 1);
+  return [name, form, cptr ];
+}
+
+@define dw_get_tag (dwdom, ptr)
+{
+  @local cptr, tag, child;
+  cptr = {dwdom}ptr;
+  tag = decodeuleb128 (cptr);
+  cptr = listref (tag, 1);
+  tag = head (tag);
+  child = *(unsigned char *) cptr++;
+  return [tag, child, cptr];
+}
+
+@define dw_get_one_abbrev (dwdom, ptr)
+{
+  @local acode, cptr, result, tag, spec, atlist;
+  cptr = {dwdom} ptr;
+  acode = decodeuleb128 (cptr);
+  cptr = listref (acode, 1);
+  acode = head (acode);
+  if (!acode)
+    return [];
+  tag = dw_get_tag (dwdom, cptr);
+  cptr = listref (tag, 2);
+  tag = [ head (tag), listref (tag, 1) ]; /* just tag and child flag */
+  spec = dw_get_att_spec (dwdom, cptr);
+  cptr = listref (spec, 2);
+  atlist = [];
+  while (head (spec) || listref (spec, 1)) {
+    spec = [ head (spec), listref (spec, 1) ]; /* just name and form */
+    append (atlist, spec);
+    spec = dw_get_att_spec (dwdom, cptr);
+    cptr = listref (spec, 2);
+  }
+  result = [ acode, tag, atlist, cptr];
+  return result;
+}
+
+@define dw_get_cu_abbrev_table (dwdom, ptr)
+{
+  @local cptr, result, ab, len;
+  @local m, r, rbeg, rend, inrange;
+  m = dwdom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  cptr = {dwdom} ptr;
+  result = [];
+  ab = dw_get_one_abbrev (dwdom, cptr);
+  while (!isempty (ab) && head (ab)) {
+    len = length (ab);
+    append (result, ab);
+    cptr = listref (ab, len - 1); /* last element is new cptr */
+    if (!inrange (cptr))
+      break;
+    ab = dw_get_one_abbrev (dwdom, cptr);
+  }
+  return result;
+}
+
+lastlocfun = nil;
+@define dw_get_attr_val (bdrec, form, ptr)
+{
+  @local cptr, val, len, end;
+  @local indom, abdom, asize;
+  indom = bdrec.debug_info;
+  abdom = bdrec.debug_abbrev;
+  cptr = {indom} ptr;
+  val = nil;
+  asize = bdrec.addrsize;
+  switch (form) {
+  case indom`DW_FORM_data1:
+    val = * (unsigned char *) cptr;
+    cptr = (unsigned int) cptr + 1;
+    break;
+  case indom`DW_FORM_ref4:
+    val = * (`uint32 *) cptr;
+    cptr = (unsigned int) cptr + 4;
+    break;
+  case indom`DW_FORM_strp:
+    val = * (`uint32 *) cptr;
+    cptr = (unsigned int) cptr + 4;
+    break;
+  case indom`DW_FORM_data2:
+    val = * (`uint16 *) cptr;
+    cptr = (unsigned int) cptr + sizeof (indom`uint16);
+    break;
+  case indom`DW_FORM_string:
+    val = stringof ( (`uint8 *) cptr);
+    cptr = (unsigned int) cptr + strlen (val) + 1;
+    break;
+  case indom`DW_FORM_data4:
+    val = * (`uint32 *) cptr;
+    cptr = (unsigned int) cptr + sizeof (indom`uint32);
+    break;
+  case indom`DW_FORM_block1:
+  case indom`DW_FORM_block2:
+  case indom`DW_FORM_block4:
+  case indom`DW_FORM_block: {
+    @local locfun;
+    switch (form) {
+    case indom`DW_FORM_block1:
+      len = * (`uint8 *)cptr;
+      cptr = (unsigned char *) cptr + 1;
+      end = cptr + (unsigned int) len;
+      break;
+    case indom`DW_FORM_block2:
+      len = * (`uint16 *) cptr;
+      cptr = (unsigned char *) cptr + 2;
+      end =  cptr + len;
+      break;
+    case indom`DW_FORM_block4:
+      len = * (`uint32 *) cptr;
+      cptr = (unsigned char *) cptr + 4;
+      end =  cptr + len;
+      break;
+    case indom`DW_FORM_block:
+      len = decodeuleb128 (cptr);
+      cptr = listref (len, 1);
+      len = head (len);
+      end =  cptr + len;
+      break;
+    }
+    val =  build_locfun (cptr, end, bdrec);
+    cptr = end;
+    break;
+  }
+  case indom`DW_FORM_sdata:
+    val = decodesleb128 (cptr);
+    cptr = listref (val, 1);
+    val = head (val);
+    break;
+  case indom`DW_FORM_addr: {
+    if (asize == 4)
+      cptr = (`uint32 *) cptr;
+    else if (asize == 8)
+      cptr = (`uint64 *) cptr;
+    val = *cptr;
+    cptr++;
+  }
+    break;
+  case indom`DW_FORM_flag:
+    val = * (unsigned char *) cptr;
+    cptr = (unsigned int) cptr + 1;
+    break;
+  case indom`DW_FORM_udata:
+    val = decodeuleb128 (cptr);
+    cptr = listref (val, 1);
+    val = head (val);
+    break;
+  case indom`DW_FORM_ref_addr: {
+    if (asize == 4)
+      cptr = (`uint32 *) cptr;
+    else if (asize == 8)
+      cptr = (`uint64 *) cptr;
+    val = *cptr;
+    cptr++;
+  }
+    break;
+  case indom`DW_FORM_data8:
+    val = * (`uint64 *) cptr;
+    cptr = (unsigned int) cptr + sizeof (indom`uint64);
+    break;
+  case indom`DW_FORM_ref1:
+    val = * (`uint8 *) cptr;
+    cptr = (unsigned int) cptr + 1;
+    break;
+  case indom`DW_FORM_ref2:
+    val = * (`uint16 *) cptr;
+    cptr = (unsigned int) cptr + 2;
+    break;
+  case indom`DW_FORM_ref8:
+    val = * (`uint64 *) cptr;
+    cptr = (unsigned int) cptr + 8;
+    break;
+  case indom`DW_FORM_ref_udata:
+    val = decodeuleb128 (cptr);
+    cptr = listref (val, 1);
+    val = head (val);
+    break;
+  case indom`DW_FORM_indirect:
+    /* In this case we find the real form by decoding cptr. */
+    val = decodeuleb128 (cptr);
+    cptr = listref (val, 1);
+    val = head (val);
+    val = dw_get_attr_val (bdrec, val, cptr);
+    cptr = listref (val, 1);
+    val = head (val);
+    break;
+  default:
+    printf ("reached default in FORM switch for 0x%x.\n", form);
+    break;
+  }
+  return [ val, cptr ];
+}
+
+@define dw_get_lang_string (dwdom, lang)
+{
+  @local l;
+  l = {dwdom} lang;
+  switch (l) {
+  case dwdom`DW_LANG_C89:
+    return ("DW_LANG_C89");
+    break;
+  case dwdom`DW_LANG_C:
+    return ("DW_LANG_C");
+    break;
+  case dwdom`DW_LANG_Ada83:
+    return ("DW_LANG_Ada83");
+    break;
+  case dwdom`DW_LANG_C_plus_plus:
+    return ("DW_LANG_C_plus_plus");
+    break;
+  case dwdom`DW_LANG_Cobol74:
+    return ("DW_LANG_Cobol74");
+    break;
+  case dwdom`DW_LANG_Cobol85:
+    return ("DW_LANG_Cobol85");
+    break;
+  case dwdom`DW_LANG_Fortran77:
+    return ("DW_LANG_Fortran77");
+    break;
+  case dwdom`DW_LANG_Fortran90:
+    return ("DW_LANG_Fortran90");
+    break;
+  case dwdom`DW_LANG_Pascal83:
+    return ("DW_LANG_Pascal83");
+    break;
+  case dwdom`DW_LANG_Modula2:
+    return ("DW_LANG_Modula2");
+    break;
+  case dwdom`DW_LANG_Java:
+    return ("DW_LANG_Java");
+    break;
+  case dwdom`DW_LANG_C99:
+    return ("DW_LANG_C99");
+    break;
+  case dwdom`DW_LANG_Ada95:
+    return ("DW_LANG_Ada95");
+    break;
+  case dwdom`DW_LANG_Fortran95:
+    return ("DW_LANG_Fortran95");
+    break;
+  case dwdom`DW_LANG_PLI:
+    return ("DW_LANG_PLI");
+    break;
+  case dwdom`DW_LANG_ObjC:
+    return ("DW_LANG_ObjC");
+    break;
+  case dwdom`DW_LANG_ObjC_plus_plus:
+    return ("DW_LANG_ObjC_plus_plus");
+    break;
+  case dwdom`DW_LANG_UPC:
+    return ("DW_LANG_UPC");
+    break;
+  case dwdom`DW_LANG_D:
+    return ("DW_LANG_D");
+    break;
+  case dwdom`DW_LANG_lo_user:
+    return ("DW_LANG_lo_user");
+    break;
+  case dwdom`DW_LANG_Mips_Assembler:
+    return ("DW_LANG_Mips_Assembler");
+    break;
+  case dwdom`DW_LANG_Upc:
+    return ("DW_LANG_Upc");
+    break;
+  case dwdom`DW_LANG_ALTIUM_Assembler:
+    return ("DW_LANG_ALTIUM_Assembler");
+    break;
+  case dwdom`DW_LANG_hi_user:
+    return ("DW_LANG_hi_user");
+    break;
+  default:
+    return ("unknown language");
+    break;
+  }
+}
+
+@define dw_addr2line (bdrec, addr)
+{
+  @local ltab, cuinfo, cutab, dlist, flist, entry, dir, f, rv, ardom, arl, i;
+  @local cuoff;
+  @local linedom;
+  linedom = bdrec.debug_line;
+  cuinfo = nil;
+  ardom = bdrec.debug_aranges;
+  cuoff = dw_get_lineoff_for_cu (bdrec, addr);
+  if (isnil (cuoff))
+    return "no line number info";
+  cuinfo = tablook (bdrec.linetable, {linedom}cuoff);
+  if (isnil (cuinfo)) {
+    cuinfo = dw_get_cu_linenumber_info (bdrec, {linedom}cuoff);
+    tabinsert (bdrec.linetable, {linedom}cuoff, cuinfo);
+  }
+  dlist = listref (cuinfo, 3);
+  flist = listref (cuinfo, 4);
+  cutab = listref (cuinfo, 5);
+  entry = listref (binsrch_interval (linedom, cutab, addr), 0);
+  f = listref (flist, listref (entry, 1) - 1);
+  dir = listref (dlist, listref (f, 1));
+  rv = sprintfa ("%s/%s:\t%d", dir, head (f), listref (entry, 2));
+  return rv;
+}
+
+{ @local local_scope_stack;
+  local_scope_stack = [];
+@define dw_process_die (bdrec, abtab, typetab, symtab, fblist, ptr, cubase, toplevel)
+{
+  @local acode, cptr, ab, abl, tag, spec, speclist, cqcttype;
+  @local val, atname, form, i;
+  @local indom, abdom, strdom;
+  indom = bdrec.debug_info;
+  abdom = bdrec.debug_abbrev;
+  strdom = bdrec.debug_str;
+  ptr = (unsigned int) ptr;
+  cptr = {indom} ptr;
+  acode = decodeuleb128 (cptr);
+  cptr = listref (acode, 1);
+  acode = head (acode);
+  if (!acode || acode > length (abtab)) {
+    return [ nil, cptr ];
+  }
+  ab = nil;
+  if (acode == head (listref (abtab, acode - 1)))
+    ab = listref (abtab, acode - 1);
+  else {
+    printf ("problem in abtab\n");
+    for (i = 0; i < length (abtab); i++)
+      if (head (listref (abtab, i)) == acode) {
+	ab = listref (abtab, i);
+	printf ("acode = %d, i = %d, head (ab) = %d\n", acode, i, head (ab));
+	break;
+      }
+  }
+
+  if (isnil (ab)) {
+    printf ("ab is %a\n", ab);
+    return [ nil, cptr ];
+  }
+  tag = listref (ab, 1);
+  speclist = listref (ab, 2); /* 0 is code, 1 is tag, 2 is list of name-form
+				 pairs, 3 is ptr to next abbrev entry */
+  switch (head (tag)) {
+  case abdom`DW_TAG_formal_parameter: {
+    @local name, type, location, fparam, abstorigin;
+    abstorigin = 0;
+    name = nil;
+    type = nil;
+    location = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp) {
+	  name = stringof ((unsigned char *) {strdom} val);
+	}
+	else if (form == indom`DW_FORM_string)
+	  name = val;
+      }
+      else if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in formal parameter code.\n");
+	type = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_location) {
+	if (form == indom`DW_FORM_data4
+	    || form == indom`DW_FORM_data8) {
+	  /* then val is an offset into the .debug_loc section */
+	  location = dw_process_location_list (bdrec, val, cubase,
+					 _dw_current_frame_base);
+	  location = head (location);
+	}
+	else {
+	  if (isempty (local_scope_stack)) {
+	    location = val;
+	  }
+	  else {
+	    location = [[listref (local_scope_stack, 0), val]];
+	  }
+	}
+      }
+      else if (atname == indom`DW_AT_abstract_origin)
+	abstorigin = val;
+    }
+    if (abstorigin) {
+      @local refparam;
+      refparam = tablook (symtab, abstorigin);
+      if (!isnil (refparam)) {
+	@local locinfo;
+	if (!isnil (name))
+	  printf ("formal param %a has abstorigin named %a\n", name, listref (refparam, 2));
+	else
+	  name = listref (refparam, 2);
+	if (!isnil (type))
+	  printf ("formal param %a has type %a and abstorigin type %a\n",
+		  name, type, listref (refparam, 3));
+	else
+	  type = listref (refparam, 3);
+	if (!isnil (location)) {
+	  @local scope;
+	  locinfo = listref (refparam, 4);
+	  scope = isempty (local_scope_stack) ? local_scope_stack :
+	    head (local_scope_stack);
+	  append (locinfo, [scope, location]);
+	}
+      }
+    }
+
+    fparam = [ ptr, {indom}head (tag), name, type,
+	       [[isempty (local_scope_stack) ? local_scope_stack
+	       : head (local_scope_stack),
+	       location]] ];
+    if (!abstorigin) {
+      tabinsert (symtab, {indom}((unsigned int)ptr - cubase),
+		 fparam);
+    }
+    return [ fparam, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_variable: {
+    @local name, type, location, var, stataddr, abstorigin, retaddr;
+    name = nil;
+    type = nil;
+    location = nil;
+    stataddr = 0;
+    abstorigin = 0;
+    retaddr = 0;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  name = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  name = val;
+      }
+      else if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in variable code.\n");
+	type = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_location) {
+	if (form == indom`DW_FORM_data4
+	    || form == indom`DW_FORM_data8) {
+	  /* then val is an offset into the .debug_loc section */
+	  location = dw_process_location_list (bdrec, val, cubase,
+					       _dw_current_frame_base);
+	  location = head (location);
+	}
+	else {
+	  if (isempty (local_scope_stack)
+	      ) {
+	    if (isprocedure (val)) {
+	      location = listref (val(indom.as), 0);
+	    }
+	    else {
+	      location = val;
+	    }
+	  }
+	  else {
+	    location = [[listref (local_scope_stack, 0), val]];
+	  }
+	}
+      }
+      else if (atname == indom`DW_AT_abstract_origin)
+	abstorigin = val;
+    }
+    if (abstorigin) {
+      @local refvar;
+      refvar = tablook (symtab, abstorigin);
+      if (!isnil (refvar)) {
+	@local locinfo;
+	if (!isnil (name))
+	  printf ("var %a has abstorigin named %a\n", name, listref (refvar, 2));
+	else
+	  name = listref (refvar, 2);
+	if (!isnil (type))
+	  printf ("var %a has type %a and abstorigin type %a\n",
+		  name, type, listref (refvar, 3));
+	else
+	  type = listref (refvar, 3);
+	if (!isnil (location)) {
+	  @local scope;
+	  locinfo = listref (refvar, 4);
+	  scope = isempty (local_scope_stack) ? local_scope_stack :
+	    head (local_scope_stack);
+	  append (locinfo, [scope, location]);
+	}
+      }
+    }
+    var = [ ptr, {indom}head (tag), name, type,
+	    [[isempty (local_scope_stack) ? local_scope_stack
+	    : head (local_scope_stack),
+	    location]], toplevel];
+    if (!abstorigin && !isnil (location)) {
+      tabinsert (symtab, {indom}((unsigned int)ptr - cubase),
+		 var);
+    }
+    return [ var, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_enumerator: {
+    @local name, eval, en;
+    name = nil;
+    eval = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  name = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  name = val;
+      }
+      else if (atname == indom`DW_AT_const_value) {
+	eval = val;
+      }
+    }
+    en = [ ptr, {indom} head (tag), name, eval ];
+    return [ en, cptr ];
+  }
+    break;
+  case abdom`DW_TAG_member: {
+    @local mend, msize, bitfield, mtype, bitsize;
+    @local mem, mloc, bitoff, tname;
+    bitfield = 0;
+    bitoff = nil;
+    bitsize = nil;
+    msize = nil;
+    mtype = nil;
+    mend = nil;
+    tname = nil;
+    mloc = 0; /* should remain unmodified for members of unions */
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  tname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  tname = val;
+      }
+      else if (atname == indom`DW_AT_sibling) {
+	mend = val;
+	printf ("Found member DIE with sibling at 0x%x\n", ptr);
+      }
+      else if (atname == indom`DW_AT_byte_size)
+	msize = val;
+      else if (atname == indom`DW_AT_bit_size) {
+	bitsize = val;
+	bitfield = 1;
+      }
+      else if (atname == indom`DW_AT_bit_offset) {
+	bitoff = val;
+	bitfield = 1;
+      }
+      else if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in member code.\n");
+	mtype = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_data_member_location) {
+	mloc = listref (val(indom.as), 0);
+      }
+    }
+    if (bitfield && !isnil (bitsize) && !isnil (bitoff))
+      mem = [ mloc, {indom} head (tag), tname, mtype, bitsize, bitoff, msize ];
+    else
+      mem = [ mloc, {indom} head (tag), tname, mtype, nil ];
+    return [ mem, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_lexical_block:
+  case abdom`DW_TAG_subroutine_type:
+  case abdom`DW_TAG_inlined_subroutine:
+  case abdom`DW_TAG_subprogram: {
+    @local name, prog, hipc, lopc, fbase, paramlist, progend, contextset;
+    @local progtype, isnotdone, locals, paramsdone, abstorigin, inline;
+    @local rlv, rl, lscope, subscopes, symlist, typelist;
+    paramlist = [];
+    symlist = [];
+    typelist = [];
+    lopc = nil;
+    hipc = nil;
+    rlv = nil;
+    rl = nil;
+    paramsdone = 0;
+    locals = [];
+    subscopes = [];
+    progend = 0;
+    progtype = nil;
+    name = nil;
+    abstorigin = 0;
+    inline = 0;
+    contextset = 0;
+    for (i = 0; i < length (speclist); i++) {
+      @local saveptr;
+      saveptr = cptr;
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      /* call with dynamic == 1 in order to handle DW_AT_frame_base attributes
+	 that are not location lists */
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  name = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  name = val;
+      }
+      else if (atname == indom`DW_AT_type) {
+	progtype = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_low_pc) {
+	lopc = val;
+      }
+      else if (atname == indom`DW_AT_high_pc) {
+	hipc = val;
+      }
+      else if (atname == indom`DW_AT_frame_base) {
+	@local locdom, rv;
+	if (!isnil (hipc)) {
+	  push (local_scope_stack, [[lopc, hipc]]);
+	  contextset = 1;
+	}
+	if (form == indom`DW_FORM_data4
+	    || form == indom`DW_FORM_data8) {
+	  rv = dw_process_location_list (bdrec, val, cubase,
+					 _dw_current_frame_base);
+	  _dw_current_frame_base = head (rv);
+	  foreach (@lambda (v) {append (fblist, v);}, _dw_current_frame_base);
+	}
+	else {
+	  fbase = val;
+	  _dw_current_frame_base = val;
+	  append (fblist, [lopc, hipc, val]);
+	}
+      }
+      else if (atname == indom`DW_AT_sibling) {
+	progend = {indom}val + {indom}cubase;
+      }
+      else if (atname == indom`DW_AT_abstract_origin) {
+	abstorigin = val;
+      }
+      else if (atname == indom`DW_AT_inline) {
+	inline = 1;
+      }
+      else if (atname == indom`DW_AT_ranges) {
+	@local rdom, r, rmin, rmax, i, cubaseaddr;
+	rdom = bdrec.debug_ranges;
+	rlv = dw_process_range_list (bdrec, val, cubase);
+	cubaseaddr = listref (listref (rlv, 0), 0);
+	rl = listref (listref (rlv, 0), 1);
+	if (!isempty (rl)) {
+	  rmin = listref (listref (rl, 0), 0);
+	  rmax = listref (listref (rl, 0), 1);
+	}
+	else {
+	  printf ("Unexpected empty range list returned from 0x%x (%d)\n",
+		  val, val);
+	  rmax = 0;
+	  rmin = (`uintptr) {rdom} (-1);
+	}
+	for (i = 0; i < length (rl); i++) {
+	  r = listref (rl, i);
+	  if (head (r) < rmin)
+	    rmin = head (r);
+	  if (listref (r, 1) > rmax)
+	    rmax = listref (r, 1);
+	  listset (r, 0, {indom}(listref (r, 0)) + cubaseaddr);
+	  listset (r, 1, {indom}(listref (r, 1)) + cubaseaddr);
+	}
+	if (head (tag) == abdom`DW_TAG_subprogram) {
+	  lopc = {indom}rmin + cubaseaddr; /* for symbol address */
+	}
+      }
+    }
+    if (abstorigin) {
+      /* this should only happen for inlined subroutines */
+      @local refprog;
+      refprog = tablook (symtab, abstorigin);
+      if (!isnil (refprog)) {
+	if (!isnil (name))
+	  printf ("inlined subroutine %a has abstorigin named %a\n", name, listref (refprog, 2));
+	else
+	  name = listref (refprog, 2);
+	if (!isnil (progtype))
+	  printf ("inlined subroutine %a has type %a and abstorigin type %a\n",
+		  name, progtype, listref (refprog, 3));
+	else {
+	  progtype = listref (refprog, 3);
+	  if (isnil (progtype))
+	    printf ("progtype is nil for refprog %a and ptr %a\n", refprog, ptr);
+	}
+      }
+    }
+    if (isnil (hipc) && !isnil (rl)){
+      push (local_scope_stack, rl);
+    }
+    else if (!contextset){
+      push (local_scope_stack, [[lopc, hipc]]);
+    }
+    if (!isnil (rl) && !isempty (local_scope_stack)
+	&& length (listref (local_scope_stack, 0)) == 3
+	&& isnil (listref (listref (local_scope_stack, 0), 0))
+	&& isnil (listref (listref (local_scope_stack, 0), 1))
+	&& isnil (listref (listref (local_scope_stack, 0), 2)))
+      printf ("for ptr %d range list is %a\nand local_scope_stack is %a\n",
+	      ptr, rl, local_scope_stack);
+    isnotdone = @lambda () { if (listref (tag, 1) == 0) return 0; else if (progend && (unsigned int)cptr < progend) return 1;
+      else if (* (unsigned char *)cptr) return 1; else return 0;};
+    while (isnotdone ()) {
+      /* any DIE processed in this block is in some sense a child of
+	 the current DIE. In particular, we want to collect parameters,
+	 local variables, and scopes associated with lexical blocks or
+	 inlined subroutines */
+      @local srv;
+      srv = dw_process_die (bdrec, abtab, typetab,
+			    symtab, fblist, cptr, cubase, 0);
+      cptr = (unsigned char *) (listref (srv, 1));
+      if (!isnil (head (srv))) {
+	@local subdie, stag;
+	subdie = head (srv);
+	stag = listref (subdie, 1);
+	switch (stag) {
+	case indom`DW_TAG_formal_parameter:
+	case indom`DW_TAG_unspecified_parameters:
+	  append (paramlist, subdie);
+	  if (stag == indom`DW_TAG_formal_parameter)
+	    append (symlist, subdie);
+	  break;
+	case indom`DW_TAG_variable:
+	  append (locals, subdie);
+	  append (symlist, subdie);
+	  break;
+	case indom`DW_TAG_inlined_subroutine:
+	  break;
+	case indom`DW_TAG_lexical_block:
+	  append (subscopes, listref (srv, 2));
+	  break;
+	case indom`DW_TAG_structure_type:
+	case indom`DW_TAG_union_type:
+	case indom`DW_TAG_typedef:
+	case indom`DW_TAG_enumeration_type:
+	  append (typelist, subdie);
+	  break;
+	}
+      }
+      if (progend && (unsigned int) cptr >= progend) {
+	break;
+      }
+    }
+    if (isnil (hipc) && !isnil (rl))
+      pop (local_scope_stack);
+    else
+      pop (local_scope_stack);
+    if (head (tag) == abdom`DW_TAG_subprogram) {
+      if (abstorigin)
+	prog = [ ptr, {indom}head (tag),
+		 name, {indom}abstorigin, lopc, toplevel];
+      else
+	prog = [ ptr, {indom}head (tag),
+		 name, {indom}(ptr - cubase), lopc, toplevel];
+      tabinsert (symtab, {indom}((unsigned int)ptr - cubase),
+		 prog);
+    }
+    prog = [ ptr, {indom} head (tag),
+	     name, progtype, paramlist, locals, toplevel ];
+    if (abstorigin) {
+      @local refprog, lscope;
+      if (isnil (hipc) && !isnil (rl))
+	lscope = rl;
+      else
+	lscope = [[lopc, hipc]];
+      refprog = tablook (symtab, abstorigin);
+      if (isnil (refprog)) {
+	prog = [ ptr, {indom} head (tag), name, progtype, lscope,
+		 toplevel ];
+	tabinsert (symtab, {indom}((unsigned int)ptr - cubase),
+		   prog);
+      }
+      else {
+	@local loc;
+	loc = listref (refprog, 4);
+	if (isnil (loc)) {
+	  loc = lscope;
+	  listset (refprog, 4, loc);
+	}
+	else if (islist (loc)) {
+	  append (loc, lscope); // address ranges only
+	}
+	else
+	  printf ("unexpected nonnil nonlist %a as location of prog %a\n",
+		  loc, refprog);
+      }
+    }
+    else if (head (tag) != abdom`DW_TAG_lexical_block) {
+      tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+		 prog);
+    }
+    if (!isnil (rl)) {
+      lscope = [ rl, {indom} head (tag), name, symlist, typelist, subscopes ];
+      for (i = 0; i < length (rl); i++) {
+	@local r;
+	r = listref (rl, i);
+      }
+    }
+    else if (!isnil (lopc) && !isnil (hipc)) {
+      lscope = [ [ [lopc, hipc] ], {indom} head (tag), name, symlist,
+		 typelist, subscopes ];
+    }
+    else
+      lscope = nil;
+    return [ prog, cptr, lscope ];
+  }
+    break;
+  case abdom`DW_TAG_typedef: {
+    @local tdname, ttype, tsize, td, mend;
+    tdname = nil;
+    ttype = nil;
+    tsize = nil; /* probably should delete this here and not put it in type */
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  tdname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  tdname = val;
+      }
+      else if (atname == indom`DW_AT_sibling) {
+	mend = val;
+	printf ("At 0x%x found typedef DIE with sibling at 0x%x\n", ptr, mend);
+      }
+      else if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in typedef code.\n");
+	ttype = (unsigned int) val;
+      }
+    }
+    td = [ ptr, {indom} head (tag), tdname, ttype, tsize, toplevel ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       td);
+    return [ td, cptr ];
+  }
+    break;
+  case abdom`DW_TAG_pointer_type: {
+    @local name, tdname, ttype, tsize, td;
+    tdname = "void"; /* If it's not there will be a type attribute */
+    tsize = sizeof (indom`uintptr);
+    ttype = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in pointer code.\n");
+	ttype = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_byte_size) {
+	tsize = val;
+      }
+      else if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  tdname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  tdname = val;
+      }
+    }
+    td = [ ptr, {indom} head (tag), tdname, ttype, tsize ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       td);
+    return [ td, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_structure_type: {
+    @local stend, stsize, cqctstruct, memlist, tname;
+    @local isnotdone, declonly, savedstackind, i;
+    memlist = [];
+    declonly = 0;
+    tname = nil;
+    stend = 0;
+    stsize = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  tname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  tname = val;
+      }
+      else if (atname == indom`DW_AT_sibling)
+	stend = {indom}val;
+      else if (atname == indom`DW_AT_byte_size)
+	stsize = val;
+      else if (atname == indom`DW_AT_declaration)
+	declonly = 1;
+    }
+    if (isnil (tname))
+      tname = sprintfa ("anon_%d", ptr);
+    cqctstruct = [ ptr, {indom}head (tag), tname, stsize ];
+    /* now process members */
+    if (declonly) {
+      append (cqctstruct, []);
+      append (cqctstruct, toplevel);
+      tabinsert (typetab, {indom}((unsigned int)ptr - cubase), cqctstruct);
+      return [ cqctstruct, cptr ];
+    }
+    isnotdone = @lambda () { if (listref (tag, 1) == 0) return 0; else if (stend && (unsigned int)cptr < ((unsigned int)stend + (unsigned int)cubase)) return 1;
+      else if (* (unsigned char *)cptr) return 1; else return 0;};
+    while (isnotdone()) {
+      @local mem;
+      _dw_push ({indom} 0);
+      mem = dw_process_die (bdrec, abtab, typetab, symtab, fblist, cptr, cubase, 0);
+      cptr = (unsigned int) (listref (mem, 1));
+      mem = head (mem);
+      if (!isnil (mem) && listref (mem, 1) == indom`DW_TAG_member)
+	append (memlist, mem);
+      if ({indom}stend && (unsigned int)cptr >= (unsigned int)stend + (unsigned int)cubase)
+	break;
+    }
+    append (cqctstruct, memlist);
+    append (cqctstruct, toplevel);
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase), cqctstruct);
+    return [ cqctstruct, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_base_type: {
+    @local tname, size;
+    tname = nil;
+    size = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp) {
+	  tname = stringof ((unsigned char *) {strdom} val);
+	}
+	else if (form == indom`DW_FORM_string)
+	  tname = val;
+      }
+      else if (atname == indom`DW_AT_byte_size)
+	size = val;
+      else if (atname == indom`DW_AT_encoding)
+	continue;
+    }
+    if (!isnil (tname)) {
+      cqcttype = [ptr, {indom} head (tag), tname, size ];
+      tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+		 cqcttype);
+    }
+    else
+      cqcttype = nil;
+    return [ cqcttype, cptr];
+    break;
+  }
+  case abdom`DW_TAG_array_type: {
+    @local a, aname, asize, eltype, elsize, elcnt, aend, dimlist, isnotdone;
+    dimlist = [];
+    eltype = nil;
+    aname = nil;
+    elcnt = 1;
+    elsize = 0;
+    asize = nil;
+    aend = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in pointer code.\n");
+	eltype = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_sibling)
+	aend = {indom}val + {indom}cubase;
+      else if (atname == indom`DW_AT_byte_size) {
+	asize = val;
+      }
+      else if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  aname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  aname = val;
+      }
+    }
+    if (isnil (aname))
+      aname = sprintfa ("anon_%d", ptr);
+    a = [ ptr, {indom} head (tag), aname, eltype];
+    isnotdone = @lambda () { if (listref (tag, 1) == 0) return 0; else if (!isnil (aend) && cptr < aend) return 1;
+      else if (* (unsigned char *)cptr) return 1; else return 0;};
+    while (isnotdone()) {
+      @local subrange;
+      subrange = dw_process_die (bdrec, abtab, typetab, symtab, fblist, cptr, cubase, 0);
+      cptr = (unsigned int) (listref (subrange, 1));
+      subrange = head (subrange);
+      if (!isnil (subrange)
+	  && (listref (subrange, 1) == indom`DW_TAG_subrange_type
+	      || listref (subrange, 1) == indom`DW_TAG_enumeration_type)){
+	if (isnil (listref (subrange, 5))) /* for arrays like data[0] */
+	  elcnt = {indom}0;
+	else
+	  elcnt = elcnt * (listref (subrange, 5) - listref (subrange, 4));
+	append (dimlist, subrange);
+      }
+      if (!isnil (aend) && cptr >= aend) {
+	break;
+      }
+    }
+    if (isnil (asize) && elsize)
+      asize = elsize * elcnt;
+    append (a, asize);
+    append (a, dimlist);
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase), a);
+    return [ a, cptr ];
+    break;
+  }
+  case abdom`DW_TAG_subrange_type: {
+    @local sname, stype, size, ub, lb, ecnt, cqcttype;
+    sname = nil;
+    stype = nil;
+    ecnt = nil;
+    ub = nil;
+    lb = {indom} 0;
+    size = 0;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in const_type code.\n");
+	stype = (unsigned int) val;
+      }
+      else if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  sname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  sname = val;
+      }
+      else if (atname == indom`DW_AT_byte_size)
+	size = val;
+      else if (atname == indom`DW_AT_upper_bound)
+	ub = val;
+      else if (atname == indom`DW_AT_lower_bound)
+	lb = val;
+      else if (atname == indom`DW_AT_count)
+	ecnt = val;
+    }
+    if (isnil (ecnt) && !isnil (ub)) {
+      ecnt = ub - lb + 1;
+    }
+    if (isnil (sname))
+      sname = sprintfa ("anon_%d", ptr);
+    cqcttype = [ptr, {indom} head (tag), sname, stype, size, ecnt ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       cqcttype);
+    return [ cqcttype, cptr];
+    break;
+  }
+  case abdom`DW_TAG_const_type: {
+    @local ttype, tsize;
+    ttype = nil;
+    tsize = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in const_type code.\n");
+	ttype = (unsigned int) val;
+      }
+    }
+    cqcttype = [ptr, {indom} head (tag), ttype, tsize ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       cqcttype);
+    return [ cqcttype, cptr];
+    break;
+  }
+  case abdom`DW_TAG_volatile_type: {
+    @local ttype, tsize;
+    ttype = nil;
+    tsize = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_type) {
+	if (isnil (val))
+	  printf ("Found nil in volatile_type code.\n");
+	ttype = (unsigned int) val;
+      }
+    }
+    cqcttype = [ptr, {indom} head (tag), ttype, tsize ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       cqcttype);
+    return [ cqcttype, cptr];
+    break;
+  }
+  case abdom`DW_TAG_enumeration_type: {
+    @local name, elist, enumend, esize, en, isnotdone;
+    name = nil;
+    esize = nil;
+    enumend = 0;
+    elist = [];
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  name = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  name = val;
+      }
+      else if (atname == indom`DW_AT_sibling) {
+	enumend = {indom}val + {indom}cubase;
+      }
+      else if (atname == indom`DW_AT_byte_size) {
+	if (isnil (val))
+	  printf ("Found nil in enumeration_type code.\n");
+	esize = val;
+      }
+    }
+    isnotdone = @lambda () { if (listref (tag, 1) == 0) return 0; else if (enumend && cptr < enumend) return 1;
+      else if (* (unsigned char *)cptr) return 1; else return 0;};
+    while (isnotdone()) {
+      @local emem;
+      emem = dw_process_die (bdrec, abtab, typetab, symtab, fblist, cptr, cubase, 0);
+      cptr = (unsigned int) (listref (emem, 1));
+      emem = head (emem);
+      if (!isnil (emem) && listref (emem, 1) == indom`DW_TAG_enumerator)
+	append (elist, emem);
+      if (enumend && cptr >= enumend)
+	break;
+    }
+    en = [ ptr, {indom} head (tag), name, esize, elist, toplevel ];
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       en);
+    return [ en, cptr ];
+  }
+    break;
+  case abdom`DW_TAG_compile_unit: {
+    @local lopc, hipc, name, cu, lineoff;
+    lopc = nil;
+    hipc = nil;
+    name = nil;
+    lineoff = nil;
+    if (!isempty (local_scope_stack)) {
+      printf ("at beginning of cu local_scope_stack is %a\n", local_scope_stack);
+      local_scope_stack = [];
+    }
+    for (i = 0; i < length (speclist); i++) {
+      @local saveptr, val, form, atname;
+      saveptr = cptr;
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp) {
+	  name = stringof ((unsigned char *) {strdom} val);
+	}
+	else if (form == indom`DW_FORM_string) {
+	  name = val;
+	}
+	else
+	  printf ("form for DW_AT_name in compile_unit is 0x%x (%d)\n", form, form);
+      }
+      else if (atname == indom`DW_AT_entry_pc) {
+	lopc = val;
+      }
+      else if (atname == indom`DW_AT_low_pc) {
+	lopc = val;
+      }
+      else if (atname == indom`DW_AT_stmt_list) {
+	lineoff = val;
+      }
+    }
+    cu = [cubase, {indom}(head (tag)), lopc, hipc, name, lineoff ];
+    current_compilation_unit = cu;
+    return [cu, cptr];
+  }
+    break;
+  case abdom`DW_TAG_union_type: {
+    @local stend, stsize, cqctunion, memlist, tname;
+    @local isnotdone, declonly;
+    memlist = [];
+    declonly = 0;
+    tname = nil;
+    stend = 0;
+    stsize = nil;
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+      if (atname == indom`DW_AT_name) {
+	if (form == indom`DW_FORM_strp)
+	  tname = stringof ((unsigned char *) {strdom} val);
+	else if (form == indom`DW_FORM_string)
+	  tname = val;
+      }
+      else if (atname == indom`DW_AT_sibling)
+	stend = {indom}val + {indom}cubase;
+      else if (atname == indom`DW_AT_byte_size)
+	stsize = val;
+      else if (atname == indom`DW_AT_declaration)
+      	declonly = 1;
+    }
+    if (isnil (tname))
+      tname = sprintfa ("anon_%d", ptr);
+    cqctunion = [ ptr, {indom}head (tag), tname, stsize ];
+    /* now process members */
+    if (declonly) {
+      append (cqctunion, []);
+      append (cqctunion, toplevel);
+      tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+		 cqctunion);
+      return [ cqctunion, cptr ];
+    }
+    isnotdone = @lambda () { if (listref (tag, 1) == 0) return 0; else if (stend && cptr < stend) return 1;
+      else if (* (unsigned char *)cptr) return 1; else return 0;};
+    while (isnotdone()) {
+      @local mem;
+      mem = dw_process_die (bdrec, abtab, typetab, symtab, fblist, cptr, cubase, 0);
+      cptr = (unsigned int) (listref (mem, 1));
+      mem = head (mem);
+      if (!isnil (mem) && listref (mem, 1) == indom`DW_TAG_member)
+	append (memlist, mem);
+      if (stend && cptr >= stend)
+	break;
+    }
+    append (cqctunion, memlist);
+    append (cqctunion, toplevel);
+    tabinsert (typetab, {indom}((unsigned int)ptr - cubase),
+	       cqctunion);
+    return [ cqctunion, cptr ];
+    break;
+  }
+  default:
+    for (i = 0; i < length (speclist); i++) {
+      spec = listref (speclist, i);
+      atname = head (spec);
+      form = listref (spec, 1);
+      val = dw_get_attr_val (bdrec, form, cptr);
+      cptr = listref (val, 1);
+      val = head (val);
+    }
+    if (head (tag) == indom`DW_TAG_unspecified_parameters)
+      return [ [ptr, head (tag), nil, nil, nil], cptr ];
+    else
+      return [ nil, cptr ];
+    break;
+  }
+  printf ("Wouldn't expect to reach this; cptr = 0x%x (%d).\n", cptr, cptr);
+};
+}
+
+@define get_cu_baseaddr (bdrec, ptr)
+{
+  @local cptr, abtable, abptr, di, cu, end, ab, sibloc;
+  @local typetab, cnt, symtab, fblist;
+  @local indom, abdom, strdom;
+  indom = bdrec.debug_info;
+  abdom = bdrec.debug_abbrev;
+  strdom = bdrec.debug_str;
+  fblist = [];
+  cptr = {indom} ptr;
+  cu = (struct dw_cu_hdr *) cptr;
+  end = (unsigned int) cptr + cu->len + sizeof (cu->len);
+  if (!isnil (bdrec.cuinfotab[cptr])) {
+    abtab = bdrec.cuinfotab[cptr].abtable;
+  }
+  else {
+    printf ("in get_cu_baseaddr found no info at cptr %d\n", cptr);
+    abptr = {abdom} cu->abbroff;
+    abtab = dw_get_cu_abbrev_table (abdom, abptr);
+  }
+  cptr = (unsigned int) cptr + sizeof (*cu);
+  di = dw_process_die (bdrec, indom, abtable, nil, nil, fblist, cptr, (unsigned int){indom}ptr, 1);
+  return head (di);;
+}
+
+@define get_cu_info (bdrec, ptr)
+{
+  @local cptr, abtable, abptr, di, cu, end, ab, sibloc;
+  @local typetab, cnt, symtab, fblist, cuscope, subscopelist;
+  @local indom, abdom, strdom;
+  indom = bdrec.debug_info;
+  abdom = bdrec.debug_abbrev;
+  strdom = bdrec.debug_str;
+  cnt = 0;
+  fblist = [];
+  cuscope = [];
+  subscopelist = [];
+  typetab = mktab ();
+  symtab = mktab ();
+  cptr = {indom} ptr;
+  cu = (struct dw_cu_hdr *) cptr;
+  end = (unsigned int) cptr + cu->len + sizeof (cu->len);
+  abptr = {abdom} cu->abbroff;
+  abtable = dw_get_cu_abbrev_table (abdom, abptr);
+  cptr = (unsigned int) cptr + sizeof (*cu);
+  while ((unsigned int) cptr < end /*&& cnt < 180*/) {
+    cnt++;
+    di = dw_process_die (bdrec, abtable, typetab, symtab, fblist, cptr, (unsigned int){indom}ptr, 1);
+    cptr = listref (di, 1);
+    if (isnil (listref (di, 0)))
+      continue;
+    if (!islist (listref (di, 0)))
+      printf ("di is %a\n", di);
+    if (listref (listref (di, 0), 1) == indom`DW_TAG_compile_unit) {
+      @local cuinfo;
+      cuinfo = listref (di, 0);
+      cuscope = [listref (cuinfo, 2), listref (cuinfo, 3), listref (cuinfo, 4),
+		 listref (cuinfo, 0)];
+    }
+    else if (listref (listref (di, 0), 1) == indom`DW_TAG_subprogram) {
+      if (length (di) > 2 && !isnil (listref (di, 2)))
+ 	append (subscopelist, listref (di, 2));
+    }
+    else if (listref (listref (di, 0), 1) == indom`DW_TAG_variable) {
+      @local nv, scope, slocpair, locinfo;
+      nv = listref (di, 0);
+      locinfo = listref (nv, 4);
+      slocpair = listref (locinfo, 0);
+      scope = [listref (cuscope, 0), listref (cuscope, 1)];
+      listset (slocpair, 0, scope);
+    }
+    di = head (di);
+  }
+  return [cptr, typetab, symtab, fblist, append (cuscope, subscopelist), abtable, ptr ];
+}
+
+@define get_all_cu_info (bdrec, exas)
+{
+  @local cptr, typetabs, symtabs, scopelist, rv, framebaselists;
+  @local indom;
+  @local m, r, rbeg, rend, inrange;
+  indom = bdrec.debug_info;
+  m = indom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  typetabs = [];
+  symtabs = [];
+  framebaselists = [];
+  scopelist = [];
+  cptr = {indom}0;
+  while (inrange (cptr)) {
+    rv = get_cu_info (bdrec, cptr);
+    append (typetabs, listref (rv, 1));
+    append (symtabs, listref (rv, 2));
+    append (framebaselists, listref (rv, 3));
+    append (scopelist, listref (rv, 4));
+    cptr = ( head (rv));
+  }
+  return [cptr, typetabs, symtabs, framebaselists, scopelist];
+}
+
+@define dw_get_typename (dom, t, tab)
+{
+  @local tag, subtype;
+  tag = listref (t, 1);
+  switch (tag) {
+  default:
+    return sprintfa ("%a", listref (t, 2));
+    break;
+  case dom`DW_TAG_structure_type:
+    return sprintfa ("struct %a", listref (t, 2));
+    break;
+  case dom`DW_TAG_union_type:
+    return sprintfa ("union %a", listref (t, 2));
+    break;
+  case dom`DW_TAG_const_type:
+  case dom`DW_TAG_volatile_type:
+  case dom`DW_TAG_restrict_type: {
+    @local qualname;
+    if (tag == dom`DW_TAG_const_type)
+      qualname = "const";
+    else if (tag == dom`DW_TAG_volatile_type)
+      qualname = "volatile";
+    else if (tag == dom`DW_TAG_restrict_type)
+      qualname = "restrict";
+    if (isnil (listref (t, 2)))
+      return sprintfa ("%s void", qualname);
+    subtype = tablook (tab, listref (t, 2));
+    if (listref (subtype, 1) == dom`DW_TAG_base_type) {
+      /* then its third element should be its name */
+      return sprintfa ("%s %s", qualname, listref (subtype, 2));
+    }
+    else if (listref (subtype, 1) == dom`DW_TAG_pointer_type) {
+      @local st2, stname;
+      if (isnil (listref (subtype, 3)))
+	return sprintfa ("%s void*", qualname);
+      st2 = tablook (tab, listref (subtype, 3));
+      stname = dw_get_typename (dom, st2, tab);
+      return sprintfa ("%a* %s", stname, qualname);
+    }
+    else if (listref (subtype, 1) == dom`DW_TAG_subroutine_type) {
+      @local stname;
+      stname = dw_get_typename (dom, subtype, tab);
+      if (islist (stname)) {
+	/* then qualname modifies a subroutine */
+	@local len;
+	len = length (stname);
+	if (len == 2) {
+	  return [ sprintfa ("%s", head (stname)), qualname,  listref (stname, 1) ];
+	}
+	else {
+	  return [ sprintfa ("%s", head (stname)), /*ret type*/
+		   sprintfa (" %s %s", qualname, listref (stname, 1)), /* decl type */
+		   listref (stname, 2) ]; /*param list*/
+	}
+      }
+      else {
+	@local stname;
+	stname = dw_get_typename (dom, subtype, tab);
+	return sprintfa ("%s %s", qualname, stname);
+      }
+    }
+    else if (listref (subtype, 1) == dom`DW_TAG_array_type) {
+      @local stname;
+      stname = dw_get_typename (dom, subtype, tab);
+      if (islist (stname)) {
+	/* then qualname modifies an array and, according to C99, the qualifier
+	   applies to the elements */
+	@local len;
+	len = length (stname);
+	if (len == 2) {
+	  return [ sprintfa ("%s %s", qualname,  head (stname)),
+		   listref (stname, 1) ];
+	}
+	else {
+	  printf ("I'm not sure why we have length != 2 for array name %a\n", stname);
+	  return [ sprintfa ("%s", head (stname)), /*ret type*/
+		   sprintfa (" %s %s", qualname, listref (stname, 1)), /* decl type */
+		   listref (stname, 2) ]; /*param list*/
+	}
+      }
+      else {
+	@local stname;
+	stname = dw_get_typename (dom, subtype, tab);
+	return sprintfa ("%s %s", qualname, stname);
+      }
+    }
+    else if (listref (subtype, 1) == dom`DW_TAG_structure_type
+	     || listref (subtype, 1) == dom`DW_TAG_union_type
+	     || listref (subtype, 1) == dom`DW_TAG_typedef) {
+      @local stname;
+       stname = dw_get_typename (dom, subtype, tab);
+       return sprintfa ("%s %s", qualname, stname);
+    }
+    else {
+      printf ("I don't know what to do about type %a and subtype %a\n",
+	      t, subtype);
+      return "mystery const";
+    }
+    break;
+  }
+  case dom`DW_TAG_pointer_type:
+    if (isnil (listref (t, 3))) {
+      return "void*";
+    }
+    else {
+      subtype = tablook (tab, listref (t, 3));
+
+      if (listref (subtype, 1) == dom`DW_TAG_subroutine_type) {
+	@local ftype;
+	ftype = dw_get_typename (dom, subtype, tab);
+	return [ head (ftype), "*", listref (ftype, 1) ];
+      }
+      else {
+	@local stname;
+	stname = dw_get_typename (dom, subtype, tab);
+	if (islist (stname)) {
+	  /* we have a subroutine; check to see which part we are pointing to */
+	  @local len;
+	  len = length (stname);
+	  if (len == 2) {
+	    return [ sprintfa ("%s", head (stname)), "*",  listref (stname, 1) ];
+	  }
+	  else {
+	    return [ sprintfa ("%s", head (stname)), /*ret type*/
+		     sprintfa ("%s*", listref (stname, 1)), /* decl type */
+		     listref (stname, 2) ]; /*param list*/
+	  }
+	}
+	else {
+	  @local stname;
+	  stname = dw_get_typename (dom, subtype, tab);
+	  return sprintfa ("%a*", stname);
+	}
+      }
+    }
+    break;
+  case dom`DW_TAG_subprogram:
+  case dom`DW_TAG_subroutine_type: {
+    @local rtype, plist, firstiter, rtname, pliststring, i;
+    pliststring = nil;
+    if (isnil (listref (t, 3)))
+      rtname = "void";
+    else {
+      rtype = tablook (tab, listref (t, 3));
+      rtname = dw_get_typename (dom, rtype, tab);
+    }
+    firstiter = 1;
+    plist = listref (t, 4);
+    for (i = 0; i < length (plist); i++) {
+      @local param, ptype;
+      param = listref (plist, i);
+      if (firstiter) {
+	pliststring = "(";
+	firstiter = 0;
+	if (listref (param, 1) == dom`DW_TAG_unspecified_parameters
+	    && tag == dom`DW_TAG_subroutine_type)
+	  break;  /* for function types declared with no parameters in a
+		     typedef (or perhaps elsewhere) */
+      }
+      else
+      	pliststring = sprintfa ("%s,", pliststring);
+      if (listref (param, 1) == dom`DW_TAG_unspecified_parameters) {
+	if (tag == dom`DW_TAG_subprogram)
+	  pliststring = sprintfa ("%s...", pliststring);
+	break;
+      }
+      ptype = tablook (tab, listref (param, 3));
+      if (isnil (ptype)) {
+	if (isnil (listref (param, 2)))
+	  pliststring = sprintfa ("%s nil", pliststring);
+	else
+	  pliststring = sprintfa ("%s nil %s", pliststring, listref (param, 2));
+      }
+      else {
+	@local pname;
+	pname = dw_get_typename (dom, ptype, tab);
+	if (isnil (listref (param, 2))) {
+	  if (islist (pname)) {
+	    if (listref (ptype, 1) == dom`DW_TAG_subroutine_type
+		|| listref (ptype, 1) == dom`DW_TAG_pointer_type) {
+	      pliststring = sprintfa ("%s %s (%s) %s", pliststring,
+				      head (pname), listref (pname, 1),
+				      listref (pname, 2));
+	    }
+	    else if (listref (ptype, 1) == dom`DW_TAG_enumeration_type) {
+	      if (isnil (head (pname))) {
+		/* then we have an unnamed enumeration type, and we should
+		   write out the enumerator list */
+		pliststring = sprintfa ("%s enum %s", pliststring,
+					listref (pname, 1));
+	      }
+	      else
+		pliststring = sprintfa ("%s enum %s",  pliststring,
+					head (pname));
+	    }
+	  }
+	  else
+	    pliststring = sprintfa ("%s %s", pliststring, pname);
+	}
+	else {
+	  if (islist (pname)) {
+	    if (listref (ptype, 1) == dom`DW_TAG_subroutine_type
+		|| listref (ptype, 1) == dom`DW_TAG_pointer_type) {
+	      pliststring = sprintfa ("%s %s (%s %s) %s", pliststring,
+				      head (pname), listref (pname, 1),
+				      listref (param, 2),
+				      listref (pname, 2));
+	    }
+	    else if (listref (ptype, 1) == dom`DW_TAG_enumeration_type) {
+	      if (isnil (head (pname))) {
+		/* then we have an unnamed enumeration type, and we should
+		   write out the enumerator list */
+		pliststring = sprintfa ("%s enum %s %s", pliststring,
+					listref (pname, 1),
+					listref (param, 2));
+	      }
+	      else
+		pliststring = sprintfa ("%s enum %s %s",  pliststring,
+					head (pname), listref (param, 2));
+	    }
+	  }
+	  else
+	    pliststring = sprintfa ("%s %s %s", pliststring, pname,
+				    listref (param, 2));
+	}
+      }
+    }
+    if (isnil (pliststring)) {
+      if (listref (t, 1) == dom`DW_TAG_subprogram)
+	return [ rtname, listref (t, 2), "(void)" ];
+      else
+	return [ rtname, "(void)" ];
+    }
+    else {
+      if (listref (t, 1) == dom`DW_TAG_subprogram) {
+	return [ rtname, listref (t, 2), sprintfa ("%s)", pliststring) ];
+      }
+      else {
+      return [ rtname, sprintfa ("%s)", pliststring) ];
+      }
+    }
+  }
+    break;
+  case dom`DW_TAG_array_type: {
+    @local tname, eltype, dlist, dim, dimstring, i;
+    dimstring = "";
+    eltype = tablook (tab, listref (t, 3));
+    if (isnil (eltype))
+      tname = listref (t, 3);
+    else
+      tname = dw_get_typename (dom, eltype, tab);
+    if (length (t) > 5) {
+      /* then there should be a list of dimensions */
+      dlist = listref (t, 5);
+      for (i = 0; i < length (dlist); i++) {
+	dim = listref (dlist, i);
+	if (isnil (listref (dim, 5)) || listref (dim, 5) == 0) {
+	  if (isnil (listref (dim, 3)))
+	    /* then the subrange has no type; use [] instead of [0] */
+	    dimstring = sprintfa ("%s[]", dimstring);
+	  else
+	    dimstring = sprintfa ("%s[0]", dimstring);
+	}
+	else
+	  dimstring = sprintfa ("%s[%d]", dimstring, listref (dim, 5));
+      }
+    }
+    if (islist (tname)) {
+      if (listref (eltype, 1) == dom`DW_TAG_enumeration_type) {
+	if (isnil (head (tname)))
+	  return [ sprintfa ("enum %s", listref (tname, 1)), dimstring ];
+	else
+	  return [ sprintfa ("enum %s", head (tname)), dimstring ];
+      }
+      else if (length (tname) == 2) {
+	printf ("returning %a for tname %a\n",
+		[ sprintfa ("%s %s", head (tname), listref (tname, 1)),
+		  dimstring ], tname);
+	return [ sprintfa ("%s %s", head (tname), listref (tname, 1)),
+		 dimstring ];
+      }
+      else
+	return [ sprintfa ("%s %s %s", head (tname), listref (tname, 1), listref (tname, 2)),
+		 dimstring ];
+    }
+    else return [ tname, dimstring ];
+    break;
+  }
+  case dom`DW_TAG_enumeration_type: {
+    @local epair, ename, elist, eliststring, i;
+      ename = listref (t, 2);
+    if (length (t) > 4) {
+      eliststring = "{";
+      /* then there should be a list of enumerators */
+      elist = listref (t, 4);
+      for (i = 0; i < length (elist); i++) {
+	epair = listref (elist, i);
+	if (i < (length (elist) - 1))
+	  eliststring = sprintfa ("%s\t%s\t= %d,\n", eliststring,
+				 listref (epair, 2), listref (epair, 3));
+	else
+	  eliststring = sprintfa ("%s\t%s\t= %d\n}", eliststring,
+				listref (epair, 2), listref (epair, 3));
+      }
+    }
+    return [ ename, eliststring ];
+    break;
+  }
+  }
+}
+
+// define _dw_get_regval (exas, regno)
+// {
+//   return 0;
+// }
+
+@define dw_print_symbol (indom, v, symtab, typetab)
+{
+  @local location, type, tname, t, name;
+  name = listref (v, 2);
+  type = listref (v, 3);
+  location = listref (listref (listref (v, 4), 0), 1);
+  if (isprocedure (location) || islist (location))
+    return;
+  if (!isnil (location))
+    location = sprintfa ("@0x%x", location);
+  else
+    location = "        ";
+  if (!isnil (type)) {
+    t = tablook (typetab, type);
+    tname = dw_get_typename (indom, t, typetab);
+  }
+  else
+    tname = "nil";
+  if (isnil (name))
+    name = "nil";
+  if (islist (tname)) {
+    if (listref (t, 1) == indom`DW_TAG_subroutine_type) {
+      if (length (tname) == 3)
+	printf ("%s\t%s (%s %s) %s", location, head (tname),
+		listref (tname, 1), name,
+		listref (tname, 2));
+      else
+	printf ("%s\t%s %s %s", location, head (tname), name,
+		listref (tname, 1));
+    }
+    else if (listref (t, 1) == indom`DW_TAG_subprogram) {
+      if (length (tname) == 3)
+	printf ("%s\t%s %s %s", location, head (tname), name,
+		listref (tname, 2));
+      else
+	printf ("%s\t%s %a", location, name, tname);
+    }
+    else if (listref (t, 1) == indom`DW_TAG_enumeration_type) {
+      if (isnil (head (tname))) {
+	/* then we have an unnamed enumeration type, and we should
+	   write out the enumerator list */
+	printf ("%s\tenum %s %s;", location, listref (tname, 1),
+		name);
+      }
+      else
+	/* we don't need the enumerator list */
+	printf ("%s\tenum %s %s", location, head (tname),
+		name);
+    }
+    else if (listref (t, 1) == indom`DW_TAG_pointer_type) {
+      printf ("%s\t%s (%s %s) %s", location, head (tname),
+	      listref (tname, 1), name,
+	      listref (tname, 2));
+    }
+    else if (listref (t, 1) == indom`DW_TAG_const_type
+	     || listref (t, 1) == indom`DW_TAG_volatile_type
+	     || listref (t, 1) == indom`DW_TAG_restrict_type) {
+      printf ("%s\t%s %s %s", location, head (tname), name,
+	      listref (tname, 1));
+    }
+    else if (listref (t, 1) == indom`DW_TAG_array_type) {
+      if (length (tname) == 2)
+	printf ("%s\t%s %s %s", location, head (tname),
+		name, listref (tname, 1));
+      else
+	printf ("%s\t%s %s %s %s", location, head (tname),
+		listref (tname, 1), name, listref (tname, 2));
+    }
+    else
+      printf ("In dw_print_symbol didn't know what to do with\nsymbol %a, type %a, tname %a\n",
+	      v, t, tname);
+  }
+  else
+    printf ("%s\t%a %s", location, tname, name);
+}
+
+@define dw_process_range_list (bdrec, ptr, cubase)
+{
+  @local rl, asize, cubaseaddr, cptr, baseaddrflag, sloc, eloc;
+  @local isdone, cnt, len, end, rv;
+  @local rangedom;
+  rangedom = bdrec.debug_ranges;
+  cptr = {rangedom} ptr;
+  rl = [];
+  isdone = 0;
+  cnt = 0;
+  cubaseaddr = nil;
+  asize = bdrec.addrsize;
+  if (asize == 4)
+    baseaddrflag = 0xffffffff;
+  else if (asize == 8)
+    baseaddrflag = 0xffffffffffffffff;
+  else {
+    printf ("Don't know what to do with range list with addr form %a\n",
+	    form);
+    return [nil, ptr];
+  }
+  while (!isdone /*&& cnt < 56*/) {
+    cnt++;
+    /* for each range list, get the start address and the end address */
+    if (asize == 4)
+      cptr = (`uint32 *){rangedom}cptr;
+    else
+      cptr = (`uint64 *){rangedom}cptr;
+    sloc = *cptr;
+    cptr++;
+    eloc = *cptr;
+    cptr++;
+
+    if (sloc == baseaddrflag)
+      /* then eloc is the base address of the compilation unit */
+      cubaseaddr = eloc;
+    else if (sloc == 0 && eloc == 0)
+      /* we are at the end of the list */
+      isdone = 1;
+    else {
+      append (rl, [sloc, eloc]);
+    }
+  }
+  /* the range lists are not necessarily sorted, but they're of much
+     greater use to us if they are. */
+  sort (rl, @lambda (a,b) {if (head (a) < head (b)) return -1;
+	  else if (head (a) > head (b)) return 1;
+	  else return 0;});
+  if (isnil (cubaseaddr)) {
+    /* then there was no base address selection entry. Use the base
+       address of the compilation unit */
+    if (!isnil (current_compilation_unit)
+	&& cubase == head (current_compilation_unit))
+      cubaseaddr = listref (current_compilation_unit, 2);
+    else {
+      @local indom, abdom, strdom, cuinfo;
+      printf ("ccu is %a and cubase is %a\n", current_compilation_unit, cubase);
+      cuinfo = get_cu_baseaddr (bdrec, bdrec.debug_info.as, cubase);
+      cubaseaddr = listref (cuinfo, 2);
+    }
+  }
+  /* At this point cubaseaddr should be correct so that we can construct
+     a location function whose address ranges have been adjusted to those
+     of the compilation unit itself. For now, though, we are just going to
+     print ranges and location expressions */
+  rv = [ [cubaseaddr, rl], cptr ];
+  return rv;
+}
+
+@define show_all_range_lists (bdrec, cubase)
+{
+  @local cptr, isdone, rl, cnt, i, r;
+  @local rangedom;
+  @local m, r, rbeg, rend, inrange;
+  rangedom = bdrec.debug_ranges;
+  cnt = 0;
+  cptr = (`uint8 *){rangedom} 0;
+  m = rangedom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  while (inrange (cptr)) {
+    cnt++;
+    printf ("Address range located at 0x%x (%d):\n", cptr, cptr);
+    rl = dw_process_range_list (bdrec, cptr, cubase);
+    cptr = listref (rl, 1);
+    rl = listref (head (rl), 1);
+    for (i = 0; i < length (rl); i++) {
+      r = listref (rl, i);
+      printf ("0x%x\t\t0x%x\n", head (r), listref (r, 1));
+    }
+  }
+  printf ("Found %d range lists\n", cnt);
+}
+
+@define isfbsorted (fb)
+{
+  @local i, j, progfb, lastlo, curlo;
+  if (length (fb) < 1)
+    return 1;
+  curlo = lastlo = head (head (head (fb)));
+  printf ("0x%x\t%d\n", curlo, curlo);
+  for (i = 0; i < length (fb); i++) {
+    progfb = listref (fb, i);
+    for (j = 0; j < length (progfb); j++) {
+      lastlo = curlo;
+      curlo = head (listref (progfb, j));
+      if (curlo < lastlo)
+	printf ("Unordered for i = %d, j = %d, lastlo = 0x%x, curlo = 0x%x\n",
+		i, j, lastlo, curlo);
+      else
+	printf ("0x%x\t%d\n", curlo, curlo);
+    }
+  }
+}
+
+{ @local closuretab;
+  closuretab = mktab();
+@define get_frame_base_from_pc (bdrec, exas)
+{
+  @local ptr, locdom, i, j, k, n, len1, len2, fbl, gfbi, gfbj;
+  @local ar, ardom, arl, cu, cukey, etab;
+  @local lo, hi, ent, rv, dumdom, pc;
+  @local indom;
+  indom = bdrec.debug_info;
+  etab = bdrec.cuinfotab;
+  dumdom = mkdom (indom.ns, exas);
+  if (bdrec.addrsize == 8)
+    pc = dumdom.getrip();
+  else
+    pc = dumdom.geteip();
+  if (!isnil (closuretab[pc]))
+    rv = closuretab[pc];
+  else {
+    ardom = bdrec.debug_aranges;
+    cukey = dw_get_dieoff_for_cu (bdrec, pc);
+    if (isnil (cukey)) {
+      printf ("pc 0x%x not in any arange.\n", pc);
+      return nil;
+    }
+    cu = tablook (etab, cukey);
+    if (isnil (cu)) {
+      printf ("In get_frame_base_from_pc need to build cu at %d for pc %a\n",
+	      cukey, pc);
+      return nil;
+    }
+    else
+      fbl = cu.fblist;
+    ent = bsearch (pc, fbl,
+		   @lambda (k, el) {@local e, lo, hi;
+		     if (k < listref (el, 0))
+		       return -1;
+		     else if (k >= listref (el, 1))
+		       return 1;
+		     else return 0;});
+    if (!islist (ent)) {
+      printf ("ent is %a for pc 0x%x (%d)\n", ent, pc, pc);
+      print_fbl (fbl);
+    }
+    if (length (ent) == 5) {
+      /* then ent is a location list; evaluate it using the pc to
+	 determine which location list element has the right closure. */
+      rv = _dw_eval (listref (ent, 2), listref (ent, 3), pc);
+      closuretab[pc] = rv;
+    }
+    else if (length (ent) == 3) {
+      /* then ent is [lopc, hipc, <closure>]; run the closure */
+      rv = listref (ent, 2) (exas);
+    }
+    else
+      printf ("ent is %a\n", ent);
+  }
+  if (isprocedure (rv))
+    rv = rv (exas);
+  if (islist (rv) && isprocedure (rv[0]))
+    rv[0] = rv[0] (exas);
+  if (listref (rv, 1) == _dwcqct_addr_type)
+    return listref (rv, 0);
+  else if (listref (rv, 1) == _dwcqct_reg_type)
+    return _dw_get_regval (exas, listref (rv, 0));
+  else {
+    printf ("unexpected eval return val of %a\n", rv);
+    return 0;
+  }
+}
+}
+
+@define dwtype2ctype (rns, ddom, dt, stab, ttab, cqtab, def)
+{
+  @local i, j, rv, stype, dtag, tname;
+  if (!islist (dt))
+    printf ("dt is %a\n", dt);
+  dtag = listref (dt, 1);
+  switch (dtag) {
+  case ddom`DW_TAG_typedef: {
+    @local tagname, ttype, aliastype;
+    tagname = listref (dt, 2);
+    ttype = mkctype_typedef (tagname);
+    /* prevent recursion */
+    if (!isnil (tablook (cqtab, ttype))) {
+      return ttype;
+    }
+    else {
+      tabinsert (cqtab, ttype, mkctype_void());
+    }
+    if (def) {
+      if (0) {
+	printf ("dt is %a\n", dt);
+	backtrace();
+      }
+      if (isnil (listref (dt, 3)))
+	aliastype = mkctype_void();
+      else {
+	aliastype = dwtype2ctype (rns, ddom, tablook (ttab, listref (dt, 3)),
+				  stab, ttab, cqtab, 1);
+      }
+      tabinsert (cqtab, ttype, mkctype_typedef (tagname, aliastype));
+      return ttype;
+    }
+    else
+      return ttype;
+  }
+  case ddom`DW_TAG_pointer_type:
+    if (isnil (listref (dt, 3)))
+      return mkctype_ptr (mkctype_void());
+    else
+      return (mkctype_ptr (dwtype2ctype (rns, ddom,
+					 tablook (ttab, listref (dt, 3)),
+					 stab, ttab, cqtab, 1)));
+    break;
+  case ddom`DW_TAG_base_type: {
+    @local retval;
+    retval = getcbasetype (listref (dt, 2));
+    if (retval == 0)
+      printf ("getcbasetype returned %a for %a\n", retval, dt);
+    else
+      return retval;
+  }
+    break;
+  case ddom`DW_TAG_subprogram:
+  case ddom`DW_TAG_subroutine_type: {
+    @local rettype, params, cparams, len;
+    /* check for void and basetypes */
+    if (isnil (listref (dt, 3)))
+      rettype = mkctype_void ();
+    else
+      rettype = dwtype2ctype (rns, ddom, tablook (ttab, listref (dt, 3)),
+			      stab, ttab, cqtab, 1);
+    params = listref (dt, 4);
+    if (isempty (params))
+      return mkctype_fn (rettype, mkvec (0));
+    else {
+      len = length (params);
+      if (listref (listref (params, len - 1), 1) == ddom`DW_TAG_unspecified_parameters)
+	len = len - 1;
+      cparams = mkvec (len);
+    }
+    for (i = 0; i < len; i++) {
+      @local pname, ptype, p;
+      p = listref (params, i);
+      pname = listref (p, 2);
+      ptype = dwtype2ctype (rns, ddom, tablook (ttab, listref (p, 3)),
+			    stab, ttab, cqtab, 1);
+      if (isnil (pname))
+	vecset (cparams, i, mkparam (ptype));
+      else
+	vecset (cparams, i, mkparam (ptype, pname));
+    }
+    return (mkctype_fn (rettype, cparams));
+  }
+    break;
+  case ddom`DW_TAG_structure_type:
+  case ddom`DW_TAG_union_type: {
+    @local f, flist, fvec, fname, ftype, ssize, i, tagname, ctag;
+    tagname = listref (dt, 2);
+    if (isnil (tagname)) {
+      printf ("setting tagname to empty string\n");
+      tagname = "";
+    }
+    if (dtag == ddom`DW_TAG_structure_type)
+      ctag = mkctype_struct (tagname);
+    else if (dtag == ddom`DW_TAG_union_type)
+      ctag = mkctype_union (tagname);
+    flist = listref (dt, 4);
+    if (isempty (flist) || !def) {
+      return ctag;
+    }
+    /* prevent recursion */
+    if (!isnil (tablook (cqtab, ctag))) {
+      return ctag;
+    }
+    else {
+      tabinsert (cqtab, ctag, mkctype_void());
+    }
+     ssize = listref (dt, 3);
+    fvec = mkvec (length (flist));
+    for (i = 0; i < length (flist); i++) {
+      @local bitsize;
+      f = listref (flist, i);
+      fname = listref (f, 2);
+      bitsize = listref (f, 4);
+      if (isnil (bitsize))
+	ftype = dwtype2ctype (rns, ddom, tablook (ttab, listref (f, 3)),
+			      stab, ttab, cqtab, 1);
+      else {
+	@local containingtype, pos;
+	containingtype = dwtype2ctype (rns, ddom, tablook (ttab, listref (f, 3)),
+				       stab, ttab, cqtab, 1);
+	pos = listref (f, 5);
+	if (rns == c32le || rns == clp64le || rns == c64le)
+	  pos = 8 * listref (f, 6) - pos - bitsize;
+	else
+	  pos = pos;
+	ftype = mkctype_bitfield (containingtype, bitsize, pos);
+      }
+      vecset (fvec, i, mkfield (ftype, fname, listref (f, 0)));
+    }
+    if (dtag == ddom`DW_TAG_structure_type) {
+      tabinsert (cqtab, ctag, mkctype_struct (tagname, fvec, ssize));
+      return ctag;
+    }
+    else if (dtag == ddom`DW_TAG_union_type) {
+      tabinsert (cqtab, ctag, mkctype_union (tagname, fvec, ssize));
+      return ctag;
+    }
+  }
+    break;
+  case ddom`DW_TAG_array_type: {
+    @local subtype, elcnt, i;
+    subtype = dwtype2ctype (rns, ddom, tablook (ttab, listref (dt, 3)),
+			    stab, ttab, cqtab, 1);
+    if (length (dt) < 6
+	|| (length (listref (dt, 5)) == 1
+	    && isnil (listref (listref (listref (dt, 5), 0), 5)))) {
+      return mkctype_array (subtype);
+    }
+    else {
+      @local dimlist, subrange, len;
+      dimlist = listref (dt, 5);
+      len = length (dimlist);
+      for (i = 0; i < len; i++) {
+	@local cnt;
+	cnt = listref (listref (dimlist, len - i - 1), 5);
+	subtype = mkctype_array (subtype, cnt);
+      }
+      return subtype;
+    }
+  }
+    break;
+  case ddom`DW_TAG_subrange_type:
+    return nil;
+    break;
+  case ddom`DW_TAG_enumeration_type: {
+    @local epair, etag, elist, i, evec, vel, etype;
+    etag = listref (dt, 2);
+    if (isnil (etag))
+      etag = sprintfa ("anon_%d", head (dt));
+    etype = mkctype_enum (etag);
+    if (length (dt) > 4 && def) {
+      elist = listref (dt, 4);
+      evec = mkvec (length (elist));
+      for (i = 0; i < length (elist); i++) {
+	epair = listref (elist, i);
+	vel = mkvec (2);
+	vecset (vel, 0, listref (epair, 2));
+	vecset (vel, 1, listref (epair, 3));
+	vecset (evec, i, vel);
+      }
+      tabinsert (cqtab, etype, mkctype_enum (etag, evec));
+    }
+    return etype;
+  }
+    break;
+  case ddom`DW_TAG_const_type:
+  case ddom`DW_TAG_volatile_type:
+  case ddom`DW_TAG_restrict_type:
+    if (isnil (listref (dt, 2)))
+      return mkctype_void ();
+    else
+      return (dwtype2ctype (rns, ddom, tablook (ttab, listref (dt, 2)),
+			    stab, ttab, cqtab, 1));
+    break;
+  default:
+    printf ("No code yet to convert DW_TAG 0x%x (%d)\n", dtag, dtag);
+    break;
+  }
+}
+
+@define getcbasetype (name)
+{
+  if (name == "char")
+    return mkctype_char();
+  else if (name == "short int")
+    return mkctype_short();
+  else if (name == "int")
+    return mkctype_int();
+  else if (name == "long int")
+    return mkctype_long();
+  else if (name == "long long int")
+    return mkctype_vlong();
+  else if (name == "unsigned char")
+    return mkctype_uchar();
+  else if (name == "short unsigned int")
+    return mkctype_ushort();
+  else if (name == "unsigned int") {
+    @local rv;
+    rv = mkctype_uint();
+    return rv;
+  }
+  else if (name == "long unsigned int")
+    return mkctype_ulong();
+  else if (name == "long long unsigned int")
+    return mkctype_uvlong();
+  else if (name == "float")
+    return mkctype_float();
+  else if (name == "double")
+    return mkctype_double();
+  else if (name == "long double")
+    return mkctype_ldouble();
+  else if (name == "signed char")
+    return mkctype_char();
+  else if (name == "_Bool")
+    return mkctype_uchar();
+  else
+    printf ("No constructor for base type %s\n", name);
+  return 0;
+}
+
+@define dwsym2csym (rns, ddom, dsym, stab, ttab, cstab, cttab)
+{
+  @local rv, stype, sname, sloc, tag;
+  tag = listref (dsym, 1);
+  sloc = listref (dsym, 4);
+  if (isnil (sloc)) {
+    return nil;
+  }
+  if (islist (sloc)) {
+    if (isnil (listref (listref (sloc, 0), 1))
+	|| islist (listref (listref (sloc, 0), 1))) {
+      return nil;
+    }
+    else
+      sloc = listref (listref (sloc, 0), 1);
+  }
+  else if (!iscvalue (sloc))
+    return nil;
+  if (listref (dsym, 1) == ddom`DW_TAG_inlined_subroutine)
+    return nil;
+  if (isnil (dsym[3]))
+    return nil;
+  sname = listref (dsym, 2);
+  if (isnil (tablook (ttab, listref (dsym, 3))))
+    printf ("type is nil for dsym %a on lookup of %a\n", dsym, listref (dsym, 3));
+  stype = dwtype2ctype (rns, ddom, tablook (ttab, listref (dsym, 3)), stab,
+			ttab, cttab, 1);
+  if (isprocedure (sloc))
+    rv = mksym (stype, sname, sloc(ddom.as)); /* we need the as only for consistency
+						 with other calls */
+  else
+    rv = mksym (stype, sname, sloc);
+  /* Don't insert inlined subroutines into the symbol table. They just
+     produce confusing results from lookaddr. */
+  if (listref (dsym, 1) == ddom`DW_TAG_subprogram
+      && islist (listref (dsym, 4)))
+    return rv;
+  tabinsert (cstab, sname, rv);
+  return rv;
+}
+
+@define print_field (f)
+{
+  @local size, byteoffset, t;
+  t = listref (f, 0);
+  byteoffset = listref (f, 2);
+  if (isbitfield (t)) {
+    @local pos, width, bitoffset;
+    pos = bitfieldpos (t);
+    width = bitfieldwidth (t);
+    bitoffset = (byteoffset + sizeof (bitfieldcontainer (t))) * 8
+      - (pos + width);
+    printf ("\t@@%d\t%t %s:%d;\n", bitoffset, bitfieldcontainer (t),
+	    listref (f, 1), width);
+  }
+  else {
+    printf ("\t@%d\t%t %s;\n", byteoffset, t, listref (f, 1));
+  }
+}
+
+@define print_ctype (name, t)
+{
+  if (isstruct (name)) {
+    @local flds, f;
+    if (isnil (fields (t)))
+      printf ("%t\n", t);
+    else {
+      printf ("%t {\n", t);
+      flds = fields (t);
+      foreach (@lambda (v) {print_field (v);}, flds);
+      printf ("\t@%d;\n}", susize (t));
+    }
+  }
+  else if (isunion (name)) {
+    @local flds, f;
+    if (isnil (fields (t)))
+      printf ("%t\n", t);
+    else {
+      printf ("%t {\n", t);
+      flds = fields (t);
+      foreach (@lambda (v) {printf ("\t@%d\t%t;\n", listref (v, 2), v);}, flds);
+      printf ("\t@%d;\n}", susize (t));
+    }
+  }
+  else if (isenum (name)) {
+    @local ecs;
+    printf ("%t {\n", t);
+    ecs = enumconsts (t);
+    foreach (@lambda (ec) {printf ("\t%s\t= %d,\n",
+				  listref (ec, 0), listref (ec, 1));}, ecs);
+    printf ("}");
+  }
+  else if (istypedef (name)) {
+    printf ("typedef %t %t", t, name);
+  }
+  else
+    printf ("don't know what to do with %a %t\n", t, t);
+}
+
+@define binsrch_interval (dwdom, dwtab, addr)
+{
+  @local el, ad, hi, lo, i, len;
+  ad = {dwdom}addr;
+  len = length (dwtab);
+  lo = 0;
+  hi = len;
+  while ( (hi - lo) > 1) {
+    i = (lo + hi) / 2;
+    el = listref (dwtab, i);
+    if (head (el) == ad)
+      return [el, i];
+    else if (head (el) < ad)
+      lo = i;
+    else
+      hi = i;
+  }
+  if (head (listref (dwtab, hi - 1)) > ad)
+    return [listref (dwtab, lo), lo];
+  else
+    return [listref (dwtab, hi - 1), hi - 1];
+}
+
+@define print_scope (scope, level)
+{
+  @local arl, ar, lsyml, lsym, ltypel, ltype, lscopel, lscope, name, i, j, ins;
+  @local maxlev;
+  maxlev = 3;
+  if (level > maxlev)
+    return;
+  arl = listref (scope, 0);
+  name = listref (scope, 1);
+  lsyml = listref (scope, 2);
+  ltypel = listref (scope, 3);
+  lscopel = listref (scope, 4);
+  ins = "";
+  for (i = 0; i < level; i++)
+    ins = sprintfa ("%s  ", ins);
+  printf ("%sScope %s\n", ins, (isnil (name) ? "<unnamed>":name));
+  for (i = 0; i < length (arl); i++) {
+    ar = listref (arl, i);
+    printf ("%s%d   %d\n", ins, listref (ar, 0), listref (ar, 1));
+  }
+  for (i = 0; i < length (lsyml); i++) {
+    lsym = listref (lsyml, i);
+    printf ("%s%s %s\n", ins,
+	    (listref (lsym, 1) == 5 ? "parameter": "local variable"),
+	    listref (lsym, 2));
+  }
+  for (i = 0; i < length (lscopel); i++) {
+    print_scope (listref (lscopel, i), level + 1);
+  }
+}
+
+@define find_scope_addrange (scope)
+{
+  @local arl, lscopel, lscope, i, j;
+  arl = listref (scope, 0);
+  lscopel = listref (scope, 4);
+  for (i = 0; i < length (lscopel); i++) {
+    @local larl;
+    larl = find_scope_addrange (listref (lscopel, i));
+    if (!isnil (larl))
+      for (j = 0; j < length (larl); j++)
+	append (arl, listref (larl, j));
+  }
+  return arl;
+}
+
+@define find_fn_addrange (scope)
+{
+  @local arl, i, redarl;
+  redarl = [];
+  arl = find_scope_addrange (scope);
+  sort (arl, @lambda (a,b) {if (head (a) < head (b)) return -1;
+	  else if (head (a) > head (b)) return 1;
+	  else return 0;});
+  append (redarl, head (arl));
+  for (i = 1; i < length (arl); i++)
+    if (listref (listref (arl, i), 0) == listref (listref (arl, i - 1), 0)
+	&& listref (listref (arl, i), 1) == listref (listref (arl, i - 1), 1))
+      continue;
+    else
+      append (redarl, listref (arl, i));
+  for (i = 0; i < length (redarl); i++)
+    printf ("0x%x   0x%x\n", listref (listref (redarl, i), 0),
+	    listref (listref (redarl, i), 1));
+}
+
+@define show_cu_scoped_names (cuscopelist)
+{
+  @local culopc, cuhipc, slo, shi, symlist, typelist, i, name, flist, fscope;
+  @local indent;
+  indent = "   ";
+  culopc = listref (cuscopelist, 0);
+  cuhipc = listref (cuscopelist, 1);
+  name = listref (cuscopelist, 2);
+  flist = listref (cuscopelist, 4);
+  printf ("cu %a from 0x%x (%d) to 0x%x (%d)\n", name, culopc, culopc,
+	  cuhipc, cuhipc);
+  for (i = 0; i < length (flist); i++) {
+    @local subscopes, fname;
+    fscope = listref (flist, i);
+    fname = listref (fscope, 1);
+    symlist = listref (fscope, 2);
+    printf ("%sscope for function %a\n", indent, fname);
+    print_scope_symlist (symlist, indent);
+    typelist = listref (fscope, 3);
+    if (!isempty (typelist))
+      print_scope_typelist (typelist, indent);
+    subscopes = listref (fscope, 4);
+    if (!isempty (subscopes)) {
+      @local ssc, j;
+      for (j = 0; j < length (subscopes); j++) {
+	ssc = listref (subscopes, j);
+	print_subscope_names (ssc, sprintfa ("%s  ", indent));
+      }
+    }
+  }
+}
+
+@define print_scope_symlist (slist, indent)
+{
+  @local tag, name, i;
+  for (i = 0; i < length (slist); i++) {
+    @local sym;
+    sym = listref (slist, i);
+    tag = listref (sym, 1);
+    name = listref (sym, 2);
+    printf ("%s%s\t%a\n", indent, tag == 5 ? "parameter" : "local var",
+	    name);
+  }
+}
+
+@define print_scope_typelist (tlist, indent)
+{
+  @local dwtag, name, i;
+  for (i = 0; i < length (tlist); i++) {
+    @local type, prefix;
+    type = listref (tlist, i);
+    dwtag = listref (type, 1);
+    name = listref (type, 2);
+    if (dwtag == 19)
+      prefix = "struct ";
+    else if (dwtag == 23)
+      prefix = "union ";
+    else if (dwtag == 4)
+      prefix = "enum ";
+    else
+      prefix = "";
+    printf ("%s%s\t%a\n", indent, prefix, name);
+  }
+}
+
+@define print_subscope_names (ssc, indent)
+{
+  @local name, i, symlist, typelist, subscopes, nindent;
+  nindent = sprintfa ("%s  ", indent);
+  name = listref (ssc, 1);
+  symlist = listref (ssc, 2);
+  typelist = listref (ssc, 3);
+  subscopes = listref (ssc, 4);
+  printf ("%slocal scope %a\n", indent, name);
+  print_scope_symlist (symlist, indent);
+  print_scope_typelist (typelist, indent);
+  if (!isempty (subscopes)) {
+    @local lssc, j;
+    for (j = 0; j < length (subscopes); j++) {
+      lssc = listref (subscopes, j);
+      print_subscope_names (lssc, nindent);
+    }
+  }
+}
+
+@define make_function_tables (fscope, cutypetab, cusymtab, rns, dom, typetab)
+{
+  @local symtab, symlist, subscopes, typelist, i, fname, faranges;
+  @local indent, typesdone;
+  indent = "  ";
+  symtab = mktab ();
+  if (isnil (typetab)) {
+    typetab = mktab ();
+    typesdone = 0;
+  }
+  else
+    typesdone = 1;
+  if (!islist (fscope))
+    printf ("fscope is %a\n", fscope);
+  faranges = listref (fscope, 0);
+  fname = listref (fscope, 2);
+  symlist = listref (fscope, 3);
+  typelist = listref (fscope, 4);
+  if (!typesdone)
+    for (i = 0; i < length (typelist); i++) {
+      @local ltype;
+      ltype = listref (typelist, i);
+      /* the call to dwtype2ctype takes care of inserting the type into typetab*/
+      ltype = dwtype2ctype (rns, dom, ltype, cusymtab, cutypetab, typetab, 1);
+    }
+  if (length (typelist) > 0)
+    foreach (@lambda (k,v) {printf ("for function %s local type %t\n", fname, v);},
+	     typetab);
+  subscopes = listref (fscope, 5);
+  for (i = 0; i < length (symlist); i++) {
+    @local sym, sloc, sname, stype, oldsym, oldloc, temp;
+    sym = listref (symlist, i);
+    /* do something about type */
+    if (listref (sym, 1) == 24)
+      printf ("trying to process varargs\n");
+    sname = listref (sym, 2);
+    stype = listref (sym, 3); /* a ptr into the debug_info section */
+    stype = tablook (cutypetab, stype); /* the actual DWARF type */
+    stype = dwtype2ctype (rns, dom, stype, cusymtab, cutypetab, typetab, 1);
+    sloc = listref (sym, 4);
+    /* If the location is nil, then the variable has been optimized
+       out. Enter it into the table with a nil to indicate no location
+       and the address ranges of the function to indicate places
+       where an address lookup of sname should return nil because the
+       optimized out variable masks occurrences of sname in enclosing
+       scopes. If the location is non-nil, then it should have all the
+       required location information. Include the function's address
+       ranges in case there are address ranges in the scope of the
+       function where sname is not live.*/
+    oldsym = tablook (symtab, sname);
+    if (isnil (oldsym))
+      tabinsert (symtab, sname, [sname, stype, sloc]);
+    else {
+      oldloc = listref (oldsym, 2);
+      foreach (@lambda (v) {push (oldloc, v);}, sloc);
+      tabinsert (symtab, sname, [sname, stype, oldloc]);
+    }
+  }
+  if (!isempty (subscopes)) {
+    @local ssc, j;
+    for (j = 0; j < length (subscopes); j++) {
+      ssc = listref (subscopes, j);
+      if (listref (ssc, 1) == dom`DW_TAG_lexical_block)
+	add_scoped_vars (symtab, typetab, ssc, indent, cutypetab, cusymtab,
+			 typetab, rns, dom);
+    }
+  }
+  return [typetab, symtab];
+}
+
+@define add_scoped_vars (stab, ttab, scope, indent, cutypetab, cusymtab, cttab, rns, dom)
+{
+  @local symlist, subscopes, typelist, i, saranges, nindent, sname;
+  nindent = sprintfa ("%s  ", indent);
+  saranges = listref (scope, 0);
+  sname = listref (scope, 2);
+  symlist = listref (scope, 3);
+  typelist = listref (scope, 4);
+  if (!isempty (typelist))
+    print_scope_typelist (typelist, nindent);
+  subscopes = listref (scope, 4);
+  for (i = 0; i < length (symlist); i++) {
+    @local sym, sloc, sname, stype, oldsym, oldloc;
+    sym = listref (symlist, i);
+    /* do something about type */
+    sname = listref (sym, 2);
+    stype = listref (sym, 3);
+    if (isnil (stype))
+      return nil;
+    stype = tablook (cutypetab, stype);
+    stype = dwtype2ctype (rns, dom, stype, cusymtab, cutypetab, cttab, 1);
+    sloc = listref (sym, 4);
+    /* If the location is nil, then the variable has been optimized
+       out. Enter it into the table with a nil to indicate no location
+       and the address ranges of the function to indicate places
+       where an address lookup of sname should return nil because the
+       optimized out variable masks occurrences of sname in enclosing
+       scopes. If the location is non-nil, then it should have all the
+       required location information. Include the function's address
+       ranges in case there are address ranges in the scope of the
+       function where sname is not live.*/
+    oldsym = tablook (stab, sname);
+    if (isnil (oldsym))
+      tabinsert (stab, sname, [sname, stype, sloc]);
+    else {
+      oldloc = listref (oldsym, 2);
+      foreach (@lambda (v) {push (oldloc, v);}, sloc);
+      tabinsert (stab, sname, [sname, stype, oldloc]);
+    }
+  }
+  if (!isempty (subscopes)) {
+    @local ssc, j;
+    for (j = 0; j < length (subscopes); j++) {
+      ssc = listref (subscopes, j);
+      add_scoped_vars (stab, ttab, ssc, nindent, cutypetab, cusymtab, cttab,
+		       rns, dom);
+    }
+  }
+}
+
+@define get_function_tables_for_cu (cu, rns, dom, bdrec)
+{
+  @local i, f, ftabs, fscopes, cusymtab, cutypetab, stab, ttab, ns;
+  @local cudwsymtab, cudwtypetab, ctab;
+  @local crec;
+  stab = mktab ();
+  ttab = mktab ();
+  ctab = bdrec.cuinfotab;
+  ftabs = [];
+  fscopes = listref (listref (cu, 4), 4);
+  cudwsymtab = listref (cu, 2);
+  cudwtypetab = listref (cu, 1);
+  foreach (@lambda (k, v) {dwtype2ctype (rns, dom, v, cudwsymtab, cudwtypetab,
+					ttab, 1);},
+	   cudwtypetab);
+  foreach (@lambda (k, v) {dwsym2csym (rns, dom, v, cudwsymtab, cudwtypetab,
+				      stab, ttab);},
+	   cudwsymtab);
+  ns = mknsraw (rns, ttab, stab);
+  for (i = 0; i < length (fscopes); i++) {
+    @local newtabs;
+    @local tempfsc, ftfn;
+    tempfsc = listref (fscopes, i);
+    ftfn = buildclosure (tempfsc, cudwtypetab, cudwsymtab, ns, dom);
+    newtabs = [listref (tempfsc, 0), listref (tempfsc, 2), ftfn];
+    append (ftabs, newtabs);
+  }
+  crec = curec();
+  crec.ttab = ttab;
+  crec.stab = stab;
+  crec.ftabs = ftabs;
+  crec.ns = ns;
+  crec.fblist = cu[3];
+  crec.abtable = cu[length (cu) - 2];
+  tabinsert (ctab, {dom}cu[length (cu) -1], crec);
+  return crec;
+}
+
+@define show_cu_function_tables (cutabs)
+{
+  @local cuttab, custab, ftabs, ftab, i;
+  cuttab = listref (cutabs, 0);
+  custab = listref (cutabs, 1);
+  printf ("Types are:\n");
+  foreach (@lambda (k, v) {printf ("%t\t%t\n", k, v);}, cuttab);
+  printf ("Symbols are:\n");
+  foreach (@lambda (k, v) {printf ("0x%x\t%t %a\n", symoff (v), symtype (v), symid (v));}, custab);
+  ftabs = listref (cutabs, 2);
+  for (i = 0; i < length (ftabs); i++) {
+    @local lttab, lstab;
+    printf ("\tStarting local symbols\n");
+    ftab = listref (ftabs, i);
+    lttab = listref (ftab, 2);
+    lstab = listref (ftab, 3);
+    foreach (@lambda (k, v) {printf ("%a\t%a\n", k, v);}, lstab);
+    printf ("\tEnd of local symbols\n");
+  }
+}
+
+@define issorted (fnl)
+{
+  @local f, ar, i, last;
+  f = listref (fnl, 0);
+  last = listref (listref (listref (f, 0), 0), 0);
+  for (i = 1; i < length (fnl); i++) {
+    f = listref (fnl, i);
+    ar = listref (listref (listref (f, 0), 0), 0);
+    if (ar < last)
+      return 0;
+    last = ar;
+  }
+  return 1;
+}
+
+@define find_fn_and_cu (bdrec, addr)
+{
+  @local pc, arl, ardom, i, ar, abdom, strdom, elfdom, cukey, cu, etab, indom;
+  etab = bdrec.cuinfotab;
+  ardom = bdrec.debug_aranges;
+  indom = bdrec.debug_info;
+  pc = {ardom} addr;
+  cukey = dw_get_dieoff_for_cu (bdrec, pc);
+  if (isnil (cukey))
+    return nil;
+  cukey = {indom}cukey;
+  cu = tablook (etab, cukey);
+  if (isnil (cu)) {
+    /* then we need to build the cu info now */
+    @local cin, ctabs, rns;
+    rns = bdrec.rootns;
+    cin = get_cu_info (bdrec, cukey);
+    /* get_function_tables_for_cu builds cqct tables for cu and
+       inserts them into hash table */
+    ctabs = get_function_tables_for_cu (cin, rns, indom, bdrec);
+    cu = bdrec.cuinfotab[cukey];
+  }
+  return cu;
+}
+
+@define find_fn (bdrec, addr, cu)
+{
+  @local i, fl, f, indom;
+  indom = bdrec.debug_info;
+  fl = cu.ftabs;
+  f = bsearch ({indom}addr, fl,
+	       @lambda (k, el) {@local tf; tf = listref (listref (el, 0), 0);
+		 if (k < listref (tf, 0)) return -1;
+		 else if (k >= listref (tf, 1)) return 1;
+		 else return 0;});
+  return f;
+}
+
+@define symloc (symtab, sym, exas, pc, bdrec)
+{
+  @local syment, scope, rv, scl, slplist, slpent, i, j, loc;
+  scope = nil;
+  loc = nil;
+  syment = tablook (symtab, sym);
+  if (isnil (syment)) {
+    printf ("returning nil because tablook (%a, %a) is nil\n", symtab, sym);
+    return nil;
+  }
+  /* A symbol location is actually a list of [scope, locationinfo] pairs.
+     Each scope is a list of [lopc, hipc] pairs. In the case of a function
+     with a contiguous address space, there will be only one pair. In the
+     case of a function for which there is an entry in .debug_ranges, there
+     will be more than one pair. We search the pairs to see if pc is in
+     the scope. If it is, we use the locationinfo associated with that
+     scope. This could be a static address, a closure, or a location list
+     that we have to search to find the correct DWARF location entry.*/
+  slplist = listref (syment, 2);
+  if (!islist (slplist))
+    printf ("slplist is %a\nfor syment %a\n", slplist, syment);
+  for (i = 0; i < length (slplist); i++) {
+    slpent = listref (slplist, i);
+    scl = listref (slpent, 0);
+    for (j = 0; j < length (scl); j++) {
+      @local lopc, hipc;
+      scope = listref (scl, j);
+      lopc = listref (scope, 0);
+      hipc = listref (scope, 1);
+      if (lopc <= pc && pc < hipc) {
+	loc = listref (slpent, 1);
+	break;
+      }
+    }
+    if (!isnil (loc))
+      break;
+  }
+  if (isnil (loc)) {
+    return nil;
+  }
+  if (isprocedure (loc)) {
+    printf ("in symloc about to run location closure.\n");
+    return (loc(exas));
+  }
+  else if (!islist (loc))
+    return loc;
+  else {
+    /* loc should be a location list in which each list element is of the
+       form [lopc, hipc, dwarfdom, execas, ptr, length]. Search the list
+       for an address range that includes pc and extract the location
+       information from dwarfdom at offset ptr. If there is no address
+       range that includes pc, then we are at an instruction location
+       where the location of sym is unavailable but where sym still is
+       in scope and therefore shadows any variables by the same name
+       in an outer scope. Figure out how to return something that tells
+       the looksym function not to look in the root namespace. */
+    @local fbase, lcptr, lend, dom, as, indom, locent;
+    for (i = 0; i < length (loc); i++) {
+      locent = listref (loc, i);
+      if (length (locent) == 2 && isprocedure (listref (locent, 1))) {
+	return listref (locent, 1) (exas);
+      }
+      if (pc < listref (locent, 0) || pc >= listref (locent, 1))
+	continue;
+      dom = listref (locent, 2);
+      as = exas;
+      lcptr = listref (locent, 3);
+      lend = lcptr + listref (locent, 4);
+      fbase = get_frame_base_from_pc (bdrec, as);
+      while (lcptr < lend) {
+	/* As long as we are in the evaluation of a DWARF block, the values
+	   we care about are on the evaluator stack. It's only when we
+	   exit that we will care about the type. */
+	rv = _dw_eval (dom, lcptr, fbase);
+	lcptr = (unsigned int) (listref (rv, 2));
+      }
+      /* Don't get the return value from the stack because we need to
+	 know if it's a register. The type is listref (rv, 1) after
+	 the last call to _dw_eval. The caller must check the type to
+	 determine whether listref (rv, 0) is an address or a register
+	 number. */
+      listset (rv, 0, _dw_pop());
+      /* I think that the following is correct. */
+      if (isnil (listref (rv, 1))) {
+	listset (rv, 1, _dwcqct_addr_type);
+      }
+      return rv;
+    }
+  }
+  /* if we got here, we just return nil. */
+  return nil;
+}
+
+@define make_local_ns (bdrec, exas, pc)
+{
+  @local f, cu, lns, ns, ftabs, fstab, ntab, nstab, inscope, rns, cuns;
+  @local newlksym, newlktype, newlkaddr, newet, newes, cfa;
+  @local finaltab, tempdom, a2l, getretaddr;
+  @local indom;
+  indom = bdrec.debug_info;
+  nstab = mktab ();
+  cu = find_fn_and_cu (bdrec, pc);
+  if (isnil (cu))
+    return nil;
+  cuns = cu.ns;
+  rns = bdrec.rootns;
+  f = find_fn (bdrec, pc, cu);
+  ftabs = listref (f, 2) ();
+  ntab = listref (ftabs, 0);
+  fstab = listref (ftabs, 1);
+  fb = get_frame_base_from_pc (bdrec, exas);
+  if (isprocedure (fb))
+    fb = fb (exas);
+  foreach (@lambda (k,v){ @local sloc;
+      /* make sure that sym's type is in local type table */
+      sloc = symloc (fstab, k, exas, {indom}pc, bdrec);
+      if (islist (sloc) && listref (sloc, 1) == _dwcqct_addr_type)
+	sloc = listref (sloc, 0);
+      if (!isnil (sloc)) {
+	@local nsym;
+	if (isprocedure (sloc)) {
+ 	  sloc = sloc(exas);
+	}
+	if (islist (sloc) && listref (sloc, 1) == _dwcqct_reg_type) {
+	  @local vtype, getv, putv, itype;
+	  if (isprocedure (listref (sloc, 0))) {
+	    listset (sloc, 0, listref (sloc, 0)(exas));
+	  }
+	  getv = make_get_regval (listref (sloc, 0));
+	  putv = make_put_regval (listref (sloc, 0));
+	  vtype = mkctype_xaccess (listref (v, 1), getv, putv);
+	  nsym = mksym (vtype, k, listref (sloc, 0));
+	  tabinsert (nstab, k, nsym);
+	}
+	else {
+	  nsym = mksym (listref (v, 1), k, sloc);
+	  tabinsert (nstab, k, nsym);
+	}
+      }},
+    fstab);
+  lns = mknsraw (rns, ntab, nstab, sprintfa ("localsonlyns0x%x", pc));
+  tempdom = mkdom (lns, exas);
+  /* We now have a namespace for locals only as well as one for the
+     compilation unit. We construct a new namespace with an nslocals
+     method that returns this namespace of only local symbols and types. */
+  finaltab = mktab();
+  newlksym = @lambda (this, sym) {
+    @local rv;
+    rv = lns.looksym (sym);
+    if (isnil (rv))
+      return cuns.looksym (sym);
+    else
+      return rv;
+  };
+  newlktype = @lambda (this, type) {
+    @local rv;
+    rv = lns.looktype (type);
+    if (isnil (rv))
+      return cuns.looktype (type);
+    else
+      return rv;
+  };
+  newlkaddr = @lambda (this, addr) {
+    @local lrv, curv;
+    lrv = lns.lookaddr (addr);
+    if (isnil (lrv)) {
+      return cuns.lookaddr (addr);
+    }
+    else {
+      curv = cuns.lookaddr (addr);
+      if (isnil (curv) || symoff (curv) < symoff (lrv))
+	return lrv;
+      else
+	return curv;
+    }
+  };
+  newet = @lambda (this) {
+    @local mtab;
+    mtab = mycopy (cuns.enumtype());
+    foreach (@lambda (k,v) {tabinsert (mtab, k, v);}, lns.enumtype());
+    tabinsert (finaltab, "enumtype", @lambda (this) {return mtab;});
+    return mtab;
+  };
+  newes = @lambda (this) {
+    @local mtab;
+    mtab = mycopy (cuns.enumsym());
+    foreach (@lambda (k,v) {tabinsert (mtab, k, v);}, lns.enumsym());
+    tabinsert (finaltab, "enumsym", @lambda (this) {return mtab;});
+    return mtab;
+  };
+  tabinsert (finaltab, "looksym", newlksym);
+  tabinsert (finaltab, "looktype", newlktype);
+  tabinsert (finaltab, "lookaddr", newlkaddr);
+  tabinsert (finaltab, "enumtype", newet);
+  tabinsert (finaltab, "enumsym", newes);
+  tabinsert (finaltab, "nslocals", @lambda (this) {return lns;});
+  a2l = @lambda (this, addr) {return dw_addr2line (bdrec, addr);};
+  tabinsert(finaltab, "addr2line", a2l);
+  getretaddr = @lambda (this) {
+    @local asize, rlist, rvec, retaddrloc, raregno, cfa;
+    if (!isdom (this))
+      error ("getretaddr must be called through a domain.\n");
+    retaddrloc = nil;
+    asize = bdrec.addrsize;
+    /* at some point we should get this from the DWARF information in
+       the CIE */
+    if (asize == 4)
+      raregno = 8;
+    else if (asize == 8)
+      raregno = 16;
+    rlist = dw_unwind_to_caller (bdrec, (unsigned long) addr);
+    rvec = listref (head (rlist), 1);
+    for (i = 0; i < length (rvec); i++) {
+      @local r, reg, base;
+      r = listref (rvec, i);
+      if (isnil (r))
+	continue;
+      reg = head (r);
+      if (reg == fdom`DW_FRAME_CFA_COL) {
+	cfa = _dw_get_regval (this, listref (r, 1)) + listref (r, 2);
+      }
+      else if (reg == raregno) {
+	retaddrloc = (unsigned long *) ({this}(cfa + listref (r,2)));
+	break;
+      }
+      else
+	continue;
+    }
+    return retaddrloc;
+  };
+  tabinsert(finaltab, "getretaddr", getretaddr);
+  ns = mkns (finaltab, sprintfa ("finaltab0x%x", pc));
+  return ns;
+}
+
+@define make_get_regval (regno)
+{
+  @local fn;
+  fn = @lambda (dom) {return _dw_get_regval (dom, regno);};
+  return fn;
+}
+
+@define make_put_regval (regno)
+{
+  @local fn;
+  fn = @lambda (dom, val) {return _dw_put_regval (dom, regno, val);};
+  return fn;
+}
+
+@define print_fbl (fbl)
+{
+  @local i, fb;
+  for (i = 0; i < length (fbl); i++) {
+    fb = listref (fbl, i);
+    printf ("0x%x\t0x%x\t%d\t%d\n", listref (fb, 0), listref (fb, 1),
+	    listref (fb, 0),  listref (fb, 1));
+  }
+}
+
+/* Everything about this is ugly. This function exists because GCC emits
+   location information for formal parameters that is not correct during
+   the function prologue unless the location is the same as that of the
+   incoming argument. If in GDB you set a breakpoint at a function, GDB
+   computes something like this and sets the breakpoint after the function
+   prologue, at a place where the parameters have (hopefully) been copied
+   to the locations where they reside for the rest of the function. All GCC
+   would have to do to fix this problem is to emit a location list for the
+   formal parameter instead of a fixed location. This function tries to
+   implement one of the multiple GDB strategies. It finds the source line
+   number corresponding to the entry point of the function and then tries
+   to return the address corresponding to the next source line. As
+   implemented, it finds the correct entry in the line number table and
+   then examines the next 10 entries. It returns the address after the
+   last address associated with the source line of the function entry. */
+@define skip_prologue (dom, name)
+{
+  @local ns, sym, saddr, cutab, entry, ardom, cuoff, linedom;
+  @local cuinfo, nextent, i, lim, eindex, esrcline, rv, lastaddr, reset;
+  @local bdrec;
+  sym = dom.looksym (name);
+  if (isnil (sym))
+    return nil;
+  if (!isfunc (symtype (sym)))
+    return symoff (sym);
+  saddr = symoff (sym);
+  rv = saddr;
+  /* Neither of the arguments has precisely the domain information that
+     we need to do the lookup, but in the process of building a global
+     namespace in init_debug_domain, the domains associated with the
+     executable occupy the first list in the namespace domain list. We
+     will need to make sure that any additions of lists for such other
+     binaries as shared libraries are appended to this list instead of
+     pushed on it. */
+  bdrec = dom.bdrec();
+  ardom = bdrec.debug_aranges;
+  linedom = bdrec.debug_line;
+  cuoff = dw_get_lineoff_for_cu (bdrec, {ardom}saddr);
+  if (isnil (cuoff))
+    return "no line number info";
+  cuinfo = dw_get_cu_linenumber_info (bdrec, {linedom}cuoff);
+  cutab = listref (cuinfo, 5);
+  entry = binsrch_interval (linedom, cutab, {linedom}saddr);
+  /* binsrch_interval returns a pair consisting of an entry and its index
+     in the cutab */
+  eindex = listref (entry, 1);
+  entry = listref (entry, 0);
+  esrcline = listref (entry, 2);
+  if (length (cutab) - 1 - eindex < 10)
+    lim = length (cutab) - 1 - eindex;
+  else
+    lim = 10;
+  lastaddr = {linedom}saddr;
+  reset = 1;
+  for (i = 0; i < lim; i++) {
+    @local srcline;
+    nextent = listref (cutab, eindex + i + 1);
+    if (listref (nextent, 0) == lastaddr)
+      continue;
+    srcline = listref (nextent, 2);
+    if (srcline == esrcline) {
+      lastaddr = listref (nextent, 0);
+      reset = 1;
+    }
+    else if (reset) {
+      rv = {dom} listref (nextent, 0);
+      reset = 0;
+    }
+  }
+  return rv;
+}
+
+@define dumpstack (args ...)
+{
+  @local dom, gns, bt, cdom, cns, i, j, pcregno, bdrec;
+  @local addr;
+  dom = args[0];
+  addr = args[1];
+  if (length (args) > 2)
+    bdrec = args[2];
+  else
+    bdrec = dom.bdrec();
+  addr = (`uintptr) addr;
+  bt = make_framedom_vec (dom, addr, bdrec);
+  for (i = 0; i < length (bt); i++) {
+    @local fr, lns, las, ldom, lpc, sym, stab, tdom;
+    @local j;
+    ldom = bt[i];
+    if (isnil (ldom))
+      continue;
+    lns = ldom.ns;
+    lpc = _dw_get_regval (ldom, _dw_pcregnum (ldom));
+    printf ("symbols for address 0x%x:\n", lpc);
+    foreach (@lambda (k,v) {
+	@local vt;
+	vt = symtype (v);
+	if (!isenum (vt)
+	    && !isenumconst (vt))
+	  print_obj (v, ldom);},
+      lns.enumsym());
+  }
+  return bt;
+}
+
+@define make_framedom_vec (args ...)
+{
+  @local dom, gns, bt, cdom, cns, i, j, pcregno, bdrec;
+  @local addr, rv, fn;
+  dom = args[0];
+  addr = args[1];
+  if (length (args) > 2)
+    bdrec = args[2];
+  else
+    bdrec = dom.bdrec();
+  addr = (`uintptr) addr;
+  pcregno = _dw_pcregnum (dom);
+  rv = [];
+  fn = @lambda (rsetlist)
+    {map (@lambda (rset) {make_local_dom (dom, bdrec, rset);}, rsetlist);};
+  return unwindregloc (dom, addr, fn, bdrec);
+}
+
+@define make_local_dom (args ...)
+{
+  @local dom, bt, cdom, cns, i, j, pcregno, bdrec, regset;
+  @local fr, lns, las, ldom, lpc, sym, stab, tdom;
+  dom = args[0];
+  if (length (args) > 1)
+    bdrec = args[1];
+  else
+    bdrec = dom.bdrec();
+  if (length (args) > 2)
+    regset = args[2];
+  else
+    regset = mklist (2 * bdrec.addrsize + 1);
+  pcregno = _dw_pcregnum (dom);
+  if (isnil (regset[pcregno]))
+    lpc = _dw_get_regval (dom, pcregno);
+  else
+    lpc = *(`uintptr *){dom} regset[pcregno];
+  las = make_local_as (dom.as, regset, bdrec);
+  /* This may look crazy, but we need to use the local address space
+     when executing the closures in nscon to calculate the CFA for
+     a particular addr. Once we have the local namespace, we combine
+     it with the local address space to create a local domain for
+     the address. */
+  lns = bdrec.nstab[0].nscon (las, lpc);
+  if (isnil (lns))
+    return nil;
+  ldom = mkdom (lns, las, sprintfa ("ldom%s", sprintfa ("%a", lns)));
+  return ldom;
+}
+
+
+/* Once we decide how to handle domains
+   for libraries as well as primary executables, we can change this function
+   to find the right pair */
+@define get_context (addr)
+{
+  @local dom, bdrec, i;
+  dom = domof (addr);
+  bdrec = dom.bdrec();
+//   /* possible future code */
+//   doml = dom.nsdomlist (); /* we have to figure out how to append to this
+// 			      list and make it available to each record of
+// 			      a binary domain */
+//   for (i = 0; i < length (doml); i++)
+//     if (addr is in range of binary associated with listref (doml, i))
+//       return listref (doml, i);
+  return bdrec;
+}
+
+@define get_loadbase (bdrec)
+{
+  return 0;  /* later figure out how to get load address for libraries */
+}
+
+@define unwind (args ...)
+{
+  @local fn, dom, bdrec, addr;
+  dom = args[0];
+  addr = args[1];
+  if (length (args) > 2)
+    bdrec = args[2];
+  else
+    bdrec = dom.bdrec();
+  fn = @lambda (reglocset) {
+    @local pcregno;
+    @local i, mset;
+    pcregno = _dw_pcregnum (dom);
+    mset = map (@lambda (v) {if (isnil (v[pcregno]))
+	  return (`uintptr) addr;
+	else
+	  return *(`uintptr *)(v[pcregno]);},
+      reglocset);
+    return mset;
+  };
+  return unwindregloc (dom, addr, fn, bdrec);
+}
+
+@define unwindregloc (args ...)
+{
+  @local exdom, bdrec, bt, curregs, newregs, pc, pcregno, fp, sp;
+  @local i, asize, fdom, exbase, ip, rlist, rvec, cfa, reglocs;
+  @local retval;
+  @local addr, harvester;
+  exdom = args[0];
+  addr = args[1];
+  harvester = args[2];
+  if (length (args) > 3)
+    bdrec = args[3];
+  else
+    bdrec = get_context (addr);
+  pc = (`uintptr) addr; /* get rid of any type information. It can get in
+			   the way when casting to DWARF domains for lookup */
+  bt = [];
+  fdom = bdrec.debug_frame;
+  asize = bdrec.addrsize;
+  if (asize == 4) {
+    curregs = mklist (9);
+    newregs = mklist (9);
+    reglocs = mklist (9);
+  }
+  else if (asize == 8) {
+    curregs = mklist (17);
+    newregs = mklist (17);
+    reglocs = mklist (17);
+  }
+  listset (curregs, 0, {exdom}0);
+  for (i = 1; i < length (curregs); i++) {
+    listset (curregs, i, _dw_get_regval (exdom, i));
+  }
+  newregs = copy (curregs);
+  append (bt, copy (reglocs)); /* all nils since the regs themselves are
+				  the locations for the current frame */
+  exbase = get_loadbase (bdrec);
+  ip = (unsigned long) {exdom} pc - (unsigned long) {exdom} exbase;
+  rlist = dw_unwind_to_caller (bdrec, ip);
+  cfa = 0;
+  pcregno = _dw_pcregnum (exdom);
+  fp = _dw_fpregnum (exdom);
+  sp = _dw_spregnum (exdom);
+  /* For the moment assume that register rules are in order CFA, 1, 2, ...*/
+  while (!isempty (rlist)) {
+    /* First restore Canonical Frame Address (CFA) */
+    rvec = listref (head (rlist), 1);
+    for (i = 0; i < length (rvec); i++) {
+      @local reg, base, r;
+      r = listref (rvec, i);
+      if (isnil (r))
+	continue;
+      reg = head (r);
+      if (reg == fdom`DW_FRAME_CFA_COL) {
+	base = {exdom} (listref (curregs, listref (r, 1)));
+	cfa = (unsigned long) ({exdom} (base + listref (r, 2)));
+	listset (newregs, 0, cfa);
+	/* leave regloc[0] nil so that we'll always get register 0
+	   for register 0 */
+	listset (reglocs, 0, cfa);
+	/* leaving regloc[0] nil won't work; we need to set it to the
+	   CFA so that local address spaces with variables defined in
+	   terms of the stack pointer instead of the CFA can retrieve
+	   the value of the stack pointer */
+	/* If there is no rule for the stack pointer, then we assume
+	   that the function has no frame pointer and that the DWARF
+	   producer is expecting the consumer to use the Canonical
+	   Frame Address (cfa) for restoring the stack pointer. In
+	   Intel architectures the cfa is the value of the stack
+	   pointer when the call occurs. The hardware pushes the
+	   return address on the stack. When the call returns, the
+	   stack pointer is once again equal to the cfa of the
+	   returning function. Set the value of the sp register to the
+	   cfa so that further unwinds work. */
+	if (isnil (listref (rvec, sp))) {
+	  listset (newregs, sp, cfa);
+	  listset (reglocs, sp, nil);
+	}
+      }
+      else {
+	listset (newregs, reg,
+		 *((`uintptr *) ({exdom}(cfa + listref (r,2)))));
+	listset (reglocs, reg, ((`uintptr *) ({exdom}(cfa + listref (r,2)))));
+      }
+    }
+    ip = listref (newregs, pcregno);
+    for (i = 0; i < length (curregs); i++) {
+      listset(curregs, i, listref(newregs, i));
+    }
+    append (bt, copy (reglocs));
+    if (length (args) > 3)
+      bdrec = args[3];
+    else
+      bdrec = get_context (ip);
+    fdom = bdrec.debug_frame;
+    exbase = get_loadbase (bdrec);
+    ip = (unsigned int) {exdom} ip - (unsigned int) {exdom} exbase;
+    rlist = dw_unwind_to_caller (bdrec, ip);
+  }
+  return harvester (bt);
+}
+
+@define getretaddrloc (addr)
+{
+  @local bdrec, exdom, i, ip, asize, rlist, rvec, retaddrloc, raregno, cfa, fdom;
+  retaddrloc = nil;
+  bdrec = get_context (addr);
+  exdom = domof (addr);
+  fdom = bdrec.debug_frame;
+  asize = bdrec.addrsize;
+  if (asize == 4)
+    raregno = 8;
+  else if (asize == 8)
+    raregno = 16;
+  exbase = get_loadbase (bdrec);
+  ip = (unsigned long) {exdom} addr - (unsigned long) {exdom} exbase;
+  rlist = dw_unwind_to_caller (bdrec, ip);
+  rvec = listref (head (rlist), 1);
+  for (i = 0; i < length (rvec); i++) {
+    @local r, reg, base;
+    r = listref (rvec, i);
+    if (isnil (r))
+      continue;
+    reg = head (r);
+    if (reg == fdom`DW_FRAME_CFA_COL) {
+      cfa = _dw_get_regval (exdom, listref (r, 1)) + listref (r, 2);
+    }
+    else if (reg == raregno) {
+      retaddrloc = (unsigned long *) ({exdom}(cfa + listref (r,2)));
+      break;
+    }
+    else
+      continue;
+  }
+  return retaddrloc;
+}
+
+@define getretaddr (addr)
+{
+  return *(getretaddrloc (addr));
+}
+
+@define setretaddr (addr, newaddr)
+{
+  @local loc, val;
+  val = (unsigned long)newaddr;
+  loc = getretaddrloc (addr);
+  *loc = val;
+  return val;
+}
+
+/* regset is a set of locations for register values. If regset[i] is
+   nil, then the register value is in the register itself */
+@define make_local_as (ras, regset, bdrec)
+{
+  @local ldis, mtab, dom, lpc, pcregno, spregno;
+  @local i;
+  dom = nil;
+  for (i = 0; i < length (regset); i++)
+    if (!isnil (regset [i])) {
+      dom = domof (regset[i]);
+      break;
+    }
+  if (isnil (dom))
+    dom = mkdom (bdrec.rootns, ras);
+  pcregno = _dw_pcregnum (dom);
+  spregno = _dw_spregnum (dom);
+  if (isnil (regset [pcregno])) {
+    lpc = _dw_get_regval (dom, pcregno);
+  }
+  else
+    lpc = *(`uintptr *)(regset[pcregno]);
+  mtab = mktab ();
+  @define ldis (args ...) {
+    @local cmd, regno;
+    @local rv;
+    cmd = listref(args, 1);
+    regno = _dw_map_getfun_to_regnum [cmd];
+    /* We have no value for register 0 because DWARF uses it for the CFA, at
+       least in Intel architectures. Set the lower bound to 1 rather than 0
+       so that requests for register 0 pass through to the underlying address
+       space */
+    if (!isnil (regno)
+	&& 1 <= regno && regno < length (regset)
+	&& !isnil (listref (regset, regno))) {
+      rv =  *(`uintptr *) (listref (regset, regno));
+      return rv;
+    }
+    if (regno == spregno && isnil (regset[regno]) && !isnil (regset[0])) {
+      return regset[0];
+    }
+    regno = _dw_map_setfun_to_regnum [cmd];
+    if (!isnil (regno)
+	&& 0 <= regno && regno < length (regset)
+	&& !isnil (listref (regset, regno))) {
+      *(`uintptr *) (listref (regset, regno)) = listref (args, 2);
+      return *(`uintptr *) (listref (regset, regno));
+    }
+    pop (args);
+    pop (args);
+    rv = callmethod (ras, cmd, args);
+    return rv;
+  }
+  @define lget (args ...) {
+    pop (args);
+    return callmethod (ras, "get", args);
+  }
+  @define lput (args ...) {
+    pop (args);
+    return callmethod (ras, "put", args);
+  }
+  @define lmap (args ...) {
+    pop (args);
+    return callmethod (ras, "map", args);
+  }
+  tabinsert (mtab, "get", lget);
+  tabinsert (mtab, "put", lput);
+  tabinsert (mtab, "map", lmap);
+  tabinsert (mtab, "dispatch", ldis);
+  return mkas (mtab, sprintfa ("las0x%x", lpc));
+}
+
+@define print_obj (obj, dom)
+{
+  @local stype;
+  stype = symtype (obj);
+  if (istypedef (stype)) {
+    stype = typedeftype (stype);
+  }
+  if (isfunc (stype)) {
+    printf ("0x%x\t%t\n", symoff (obj), obj);
+    return;
+  }
+  else if (isarray (stype)) {
+    printf ("0x%x\t%t\n", symoff (obj), obj);
+    return;
+  }
+  else if (isstruct (stype) || isunion (stype)) {
+    print_struct (obj, dom);
+    return;
+  }
+  else if (isxaccess (stype)) {
+    printf ("%d\t\t%t %s\t0x%x\n", symoff (obj), stype,
+	    symid (obj), xaccessget (stype)(dom));
+    return;
+  }
+  else if (isenum (stype)) {
+    printf ("0x%x\t%t\n", symoff (obj), obj);
+    return;
+  }
+  else if (isenumconst (stype)) {
+    return;
+  }
+  else {
+    @local rng, type, nobj, p;
+    p = {dom}{mkctype_ptr (symtype (obj), nsptr (dom))}symoff (obj);
+    printf ("0x%x\t%t\t%s\t0x%x\n", symoff (obj), symtype (obj),
+	    symid (obj), *p);
+  }
+}
+
+@define print_struct (s, dom)
+{
+  @local f, fv, sloc, ft, foff, i, stype;
+  stype = symtype (s);
+  if (istypedef (stype))
+    stype = typedeftype (stype);
+  if (!isstruct (stype)&& !isunion (stype))
+    return;
+  fv = fields (stype);
+  sloc = {dom}symoff (s);
+  printf ("0x%x\t%t {\n", sloc, s);
+  foreach (@lambda (v) {
+      @local ft, foff, p, pft;
+      ft = fieldtype (v);
+      pft = mkctype_ptr (ft, nsptr (dom.ns));
+      p = {dom}((unsigned long)sloc + fieldoff (v));
+      p = {pft} p;
+      if (isstruct (ft) || isunion (ft)
+	  || (istypedef (ft) && (isstruct (typedeftype (ft)) || isunion (typedeftype (ft)))))
+	printf ("\t%t\t%s\t*%a\n", ft, fieldid (v), p);
+      else
+	printf ("\t%t\t%a\n", v, *p);},
+    fv);
+  printf ("}\n");
+}
+
+@define mycopy (tab)
+{
+  @local ntab;
+  ntab = mktab();
+  foreach (@lambda (k,v) {tabinsert (ntab, k, v);}, tab);
+  return ntab;
+}
+
+@define buildclosure (fscope, cudwtypetab, cudwsymtab, ns, dom)
+{
+  @local ttab;
+  ttab = nil;
+  return @lambda () {
+    @local rv;
+    rv = make_function_tables (fscope, cudwtypetab, cudwsymtab, ns, dom, ttab);
+    if (isnil (ttab))
+      ttab = rv[0];
+    return rv;
+  };
+}
+
+@define show_locals (dom)
+{
+  @local lns, ldom;
+  foreach (@lambda (k,v) {print_obj (v, dom);}, dom.enumsym());
+}
+
+@define init_debug_domain (args ...)
+{
+  @local bdrec, elfas, elfnames, elfheader, tempnames, tempdom, dom, gns;
+  @local indom, tabs, i, result, fdom, rns, cptr, rv;
+  @local newlooktype, newlooksym, newlookaddr, newenumsym, newenumtype;
+  @local stab, ttab, i, gns, nscon, mtab, a2l, uw;
+  @local drec, dbeg, dend, dr;
+  @local m, r, rbeg, rend, inrange;
+  @local cutab, binfile, lazy;
+  @local aranges;
+  if (isempty (args))
+    return nil;
+  binfile = args[0];
+  if (length (args) > 1)
+    lazy = args[1];
+  else
+    lazy = 0;
+  bdrec = mkelfrec (mapfile (binfile));
+  rns = bdrec.rootns;
+  dom = bdrec.elf;
+  if (isnil (dom))
+    return nil;
+  aranges = getelfsection (dom, ".debug_aranges");
+  if (length (aranges) == 0)
+    return nil;
+  bdrec.debug_aranges = mkdwdom (dom, getelfsection (dom, ".debug_aranges"),
+			     ".debug_aranges");
+  bdrec.debug_pubnames = mkdwdom (dom, getelfsection (dom, ".debug_pubnames"),
+			     ".debug_pubnames");
+  bdrec.debug_info = mkdwdom (dom, getelfsection (dom, ".debug_info"),
+			     ".debug_info");
+  bdrec.debug_abbrev = mkdwdom (dom, getelfsection (dom, ".debug_abbrev"),
+			     ".debug_abbrev");
+  bdrec.debug_line = mkdwdom (dom, getelfsection (dom, ".debug_line"),
+			     ".debug_line");
+  bdrec.debug_frame = mkdwdom (dom, getelfsection (dom, ".debug_frame"),
+			     ".debug_frame");
+  bdrec.debug_str = mkdwdom (dom, getelfsection (dom, ".debug_str"),
+			     ".debug_str");
+  bdrec.debug_ranges = mkdwdom (dom, getelfsection (dom, ".debug_ranges"),
+			     ".debug_ranges");
+  bdrec.debug_loc = mkdwdom (dom, getelfsection (dom, ".debug_loc"),
+			     ".debug_loc");
+  bdrec.frametable = nil;
+  bdrec.linetable = mktab (); /* a hash table keyed by cu offset and getting
+				 cu linenumber information computed when needed
+				 and stored. */
+  bdrec.cuinfotab = mktab ();
+  cutab = bdrec.cuinfotab;
+  bdrec.nstab = mktab ();
+  bdrec.fregtab = mktab ();
+  bdrec.artab = dw_get_aranges (bdrec.debug_aranges);
+  bdrec.addrsize = sizeof (nsptr (dom));
+  indom = bdrec.debug_info;
+  fdom = bdrec.debug_frame;
+  stab = mktab ();
+  ttab = mktab ();
+  if (lazy)
+    result = get_all_cu_keys (bdrec);
+  else {
+    result = [];
+    cptr = {indom}0;
+    m = indom.map();
+    r = m[0];
+    rbeg = rangebeg (r);
+    rend = rbeg + rangelen (r);
+    inrange = @lambda (v) {return rbeg <= v && v < rend;};
+    while (inrange (cptr)) {
+      @local cutabs;
+      @local ctab, cstab;
+      rv = get_cu_info (bdrec, cptr);
+      cutabs = get_function_tables_for_cu (rv, rns, indom, bdrec);
+      append (result, cptr);
+      cptr = ( head (rv));
+    }
+  }
+  newlooksym = @lambda (this, sym)
+    {
+      @local i, rv, ns, dom;
+      rv = nil;
+      dom = bdrec.debug_info;
+      for (i = 0; i < length (result); i++) {
+	if (isnil (cutab[{dom}result[i]]))
+	  continue;
+	ns = cutab[{dom}result[i]].ns;
+	rv = ns.looksym (sym);
+	if (!isnil (rv))
+	  return rv;
+      }
+      return rv;
+    };
+  newlooktype = @lambda (this, type)
+    {
+      @local i, rv, ns, dom;
+      rv = nil;
+      dom = bdrec.debug_info;
+      for (i = 0; i < length (result); i++) {
+	if (isnil (cutab[(unsigned int){dom}result[i]]))
+	  continue;
+	ns = cutab[(unsigned int){dom}result[i]].ns;
+	rv = ns.looktype (type);
+	if (!isnil (rv))
+	  return rv;
+      }
+      if (!isnil (rv))
+	return rv;
+      else
+	return bdrec.rootns.looktype (type);
+    };
+  newenumsym = @lambda (this)
+    {
+      @local lazystab, i, dom;
+      dom = bdrec.debug_info;
+      if (lazy) {
+	lazystab = mktab();
+	for (i = 0; i < length (result); i++) {
+	  @local localstab, cuns;
+	  if (isnil (cutab[{dom}result[i]]))
+	    continue;
+	  cuns = cutab[{dom}result[i]].ns;
+	  localstab = cuns.enumsym();
+	  foreach (@lambda (k, v) {tabinsert (lazystab, k, v);}, localstab);
+	}
+	return lazystab;
+      }
+      else
+	return stab;
+    };
+  newenumtype = @lambda (this)
+    {
+      @local lazyttab, i, dom;
+      dom = bdrec.debug_info;
+      if (lazy) {
+	lazyttab = mktab();
+	foreach (@lambda (k, v) {tabinsert (ttab, k, v);},
+		 bdrec.rootns.enumtype());
+	for (i = (int)(length (result) - 1); i >= 0; i--) {
+	  @local localttab, cuns;
+	  if (isnil (cutab[{dom}result[i]]))
+	    continue;
+	  cuns = cutab[{dom}result[i]].ns;
+	  localttab = cuns.enumtype();
+	  foreach (@lambda (k, v) {tabinsert (lazyttab, k, v);}, localttab);
+	}
+	return lazyttab;
+      }
+      else
+	return ttab;
+    };
+  newlookaddr = @lambda (this, addr)
+    /* Perform lookaddr on the namespace from each compilation unit,
+       and take the maximum entry. */
+    {
+      @local i, rv, ns, s, slist, dom;
+      rv = nil;
+      dom = bdrec.debug_info;
+      slist = [];
+      for (i = 0; i < length (result); i++) {
+	if (isnil (cutab[(unsigned int){dom}result[i]]))
+	  continue;
+	ns = cutab[(unsigned int){dom}result[i]].ns;
+	s = ns.lookaddr (addr);
+	if (!isnil (s) && !isnil (symoff (s)))
+	  append (slist, s);
+      }
+      if (isempty (slist))
+	return nil;
+      printf ("for addr 0x%x (%d) slist is %a\n", addr, addr, slist);
+      rv = listref (slist, 0);
+      for (i = 1; i < length (slist); i++) {
+	s = listref (slist, i);
+	if (symoff (s) > symoff (rv))
+	  rv = s;
+      }
+      return rv;
+    };
+  /* We may need to modify this. As written, it starts at the
+     opposite end of the list of compilation units so that any overwrites
+     should correspond to the type or symbol values that we get from
+     taking the first type or symbol match we get in traversing the list
+     forward. However, we want to make sure that any symbol that we keep
+     has a type that is still in the type table. In theory, a type that
+     overwrites a symbol's type should have the same name, but in the case
+     of user-defined types we could end up with the wrong type for the symbol
+     if the same type name is used for different types in different
+     compilation units. At the moment I don't know how to guarantee both
+     that the type of a symbol is in the type table and that it is correct. */
+  foreach (@lambda (k, v) {tabinsert (ttab, k, v);}, bdrec.rootns.enumtype());
+  if (!lazy) {
+    @local localttab, localstab, cuns;
+    for (i = 0; i < length (result); i++) {
+      cuns = cutab[{dom}result[i]].ns;
+      localstab = cuns.enumsym();
+      foreach (@lambda (k, v) {tabinsert (stab, k, v);}, localstab);
+    }
+    for (i = (int)(length (result) - 1); i >= 0; i--) {
+      cuns = cutab[{dom}result[i]].ns;
+      localttab = cuns.enumtype();
+      foreach (@lambda (k, v) {tabinsert (ttab, k, v);}, localttab);
+    }
+  }
+  mtab = mktab();
+  tabinsert(mtab, "looktype", newlooktype);
+  tabinsert(mtab, "enumtype", newenumtype);
+  tabinsert(mtab, "looksym", newlooksym);
+  tabinsert(mtab, "enumsym", newenumsym);
+  tabinsert(mtab, "lookaddr", newlookaddr);
+  tabinsert(mtab, "bdrec", @lambda (this) {return bdrec;});
+  a2l = @lambda (this, addr) {return dw_addr2line (bdrec, addr);};
+  tabinsert(mtab, "addr2line", a2l);
+  nscon = @lambda (this, as, addr) {
+    @local cu, cutabs;
+    @local tns, lt, ls, la, et, es, nsl, getretaddr, uas;
+    uas = as;
+    cutabs = find_fn_and_cu (bdrec, (`uintptr)addr);
+    if (isnil (cutabs)) {
+      @local ar, arl, ardom, cuns, cuoff;
+      ardom = bdrec.debug_aranges;
+      cuoff = dw_get_dieoff_for_cu (bdrec, {ardom}addr);
+      if (isnil (cuoff))
+	return nil;
+      else
+	printf ("cuoff for 0x%x (%d) is %a\n", addr, addr, cuoff);
+      cu = get_cu_info (bdrec, cuoff);
+      cutabs = get_function_tables_for_cu (cu, rns, indom, bdrec);
+    }
+    tns = make_local_ns (bdrec, uas, (`uintptr)addr);
+    return tns;
+  };
+  tabinsert (mtab, "nscon", nscon);
+  gns = mkns (mtab, "allcuns");
+  bdrec.nstab[0] = gns;
+  return gns;
+}
+
+@define build_locfun (cptr, end, bdrec)
+{
+  @local locfun;
+  locfun = @lambda (uas)
+    {
+      @local rv, fbase, lcptr, lend, indom;
+      indom = domof (cptr);
+      lcptr = cptr;
+      lend = end;
+      fbase = @lambda (uas) {return get_frame_base_from_pc (bdrec, uas);};
+      while (lcptr < lend) {
+	/* As long as we are in the evaluation of a DWARF block, the values
+	   we care about are on the evaluator stack. It's only when we
+	   exit that we will care about the type. */
+	rv = _dw_eval (indom, lcptr, fbase);
+	lcptr =  (listref (rv, 2));
+      }
+      /* Don't get the return value from the stack because we need to
+	 know if it's a register. The type is listref (rv, 1) after
+	 the last call to _dw_eval. The caller must check the type to
+	 determine whether listref (rv, 0) is an address or a register
+	 number. */
+      /* restore lcptr to starting value for subsequent invocations
+	 of closure. */
+	listset (rv, 0, _dw_pop());
+      /* I think that the following is correct. */
+      if (isnil (listref (rv, 1))) {
+	listset (rv, 1, _dwcqct_addr_type);
+      }
+      return rv;
+    };
+  return locfun;
+}
+
+@define get_all_cu_keys (bdrec)
+{
+  @local cptr, cu, end, rv, m, r, rbeg, rend, inrange, indom;
+  indom = bdrec.debug_info;
+  rv = [];
+  cptr = {indom} 0;
+  m = indom.map();
+  r = m[0];
+  rbeg = rangebeg (r);
+  rend = rbeg + rangelen (r);
+  inrange = @lambda (v) {return rbeg <= v && v < rend;};
+  while (inrange (cptr)) {
+    cu = (struct dw_cu_hdr *) cptr;
+    end = (unsigned int) cptr + cu->len + sizeof (cu->len);
+    append (rv, cu);
+    cptr = end;
+  }
+  return rv;
+}
+
+@define get_cur_regs (args ...)
+{
+  @local dom, bdrec, regs, i;
+  dom = args[0];
+  if (length (args) > 1)
+    bdrec = args[1];
+  else
+    bdrec = dom.bdrec();
+  regs = mklist (2 * bdrec.addrsize + 1);
+  for (i = 0; i < length (regs); i++)
+    regs[i] = _dw_get_regval (dom, i);
+  return regs;
+}
+
+@define print_locals (ldom)
+{
+  foreach (@lambda (k, v) {
+      @local vt;
+      vt = symtype (v);
+      if (!isenum (vt) && !isenumconst (vt))
+	print_obj (v, ldom);},
+    ldom.enumsym());
+}

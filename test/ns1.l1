@@ -1,0 +1,64 @@
+@define printtype(t){
+	@local i, fld, flds, sz, off;
+
+	if(issu(t)){
+		printf("%s %s {\n", suekind(t), suetag(t));
+		flds = fields(t);
+		for(i = 0; i < length(flds); i++){
+			fld = vecref(flds, i);
+			off = fieldoff(fld);
+			if(!isnil(off))
+				printf("\t@0x%x", off);
+			else
+				printf("\t");
+			printf("\t%t;\n", fld);
+		}
+		sz = susize(t);
+		if(!isnil(sz))
+			printf("\t@0x%x;\n", sz);
+		printf("};\n");
+	}else if(istypedef(t))
+		printf("typedef %t %s;\n", typedeftype(t), typedefid(t));
+};
+
+@define foo(){
+	@local ns, vec, i;
+
+ 	ns = @names c32le {
+ 		typedef struct foo foo_t;
+ 		struct abc { int x; @0x4; };
+ 		struct foo {
+ 			@0x00 int x;
+ 			@0x04 int y;
+ 			@0x08 int z;
+ 			@0x0c int *xp;
+ 			@0x10 int (*foo)();
+ 			@0x14 int (*bar)(void);
+ 			@0x18 int (*baz)(int p1);
+ 			@0x20 int (*baz)(int p1, struct foo *p2);
+ 			@0x24 char *a[10];
+			@0x30 struct blah {
+				@0x0	int x;
+				@0x4	int y;
+				@0x8;
+			} blahvar;
+			@0x34 foo_t *ptrtofoo;
+ 			@0x28;
+ 		};
+ 		struct bar {
+ 			@0x0 int x, y;
+			@0x8;
+ 		};
+ 		struct foo a;
+		@0x100 struct t2 { int x; @0x4; } x;
+		@0x100 struct t2 { int x, y; @0x8; } x;
+		@0x100 struct t2 { int z; @0x4; } x;
+ 	};
+
+	vec = tabvals(ns.enumtype());
+	vec = sort(vec, typenamecmp);
+	for(i = 0; i < length(vec); i++)
+		printtype(vecref(vec, i));
+};
+
+foo();

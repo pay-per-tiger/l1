@@ -1,0 +1,2 @@
+error: cast to domain that does not define struct X1 *
+	#0                   entry	(cast2.l1:12)

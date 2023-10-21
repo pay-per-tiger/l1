@@ -1,0 +1,119 @@
+should be 0: 0
+should be 0: 0
+should be 100: 100
+should be 8: 8
+should be 4: 4
+should be onehundred: onehundred
+should be onehundred: onehundred
+should be 0x100: 0x100
+should be oneeleven: oneeleven
+length of enumsym: 5
+length of enumsym: 36
+typedef char ary2_t [80][81];
+typedef unsigned char ary3_t [80][81][82][83];
+typedef char ary_t [80];
+typedef int fun2_t(int,long,fun_t,void *);
+typedef void fun_t(void);
+typedef short int16;
+typedef long int32;
+typedef long long int64;
+typedef char int8;
+struct s1 {
+	@0x0	int d;
+	@0x4;
+};
+struct s2 {
+	@0x0	int e;
+	@0x4;
+};
+typedef unsigned short uint16;
+typedef unsigned long uint32;
+typedef unsigned long long uint64;
+typedef unsigned char uint8;
+typedef unsigned long uintptr;
+@0x0	int zero;
+@['cc:"stdcall",
+  'offset:100]	void function(int a);
+@0x100	int onehundred;
+@0x111	void *oneeleven;
+typedef short int16;
+typedef long int32;
+typedef long long int64;
+typedef char int8;
+typedef int silly;
+struct s2 {
+	@0x0	int a;
+	@0x4	int b;
+	@0x8;
+};
+typedef unsigned short uint16;
+typedef unsigned long uint32;
+typedef unsigned long long uint64;
+typedef unsigned char uint8;
+typedef unsigned long uintptr;
+@0x0	int lalala;
+@0x64	int onehundred;
+
++++++++++++++++
+typedef char ary2_t [80][81];
+typedef unsigned char ary3_t [80][81][82][83];
+typedef char ary_t [80];
+typedef int fun2_t(int,long,fun_t,void *);
+typedef void fun_t(void);
+typedef short int16;
+typedef long int32;
+typedef long long int64;
+typedef char int8;
+typedef int silly;
+struct s1 {
+	@0x0	int d;
+	@0x4;
+};
+struct s2 {
+	@0x0	int a;
+	@0x4	int b;
+	@0x8;
+};
+typedef unsigned short uint16;
+typedef unsigned long uint32;
+typedef unsigned long long uint64;
+typedef unsigned char uint8;
+typedef unsigned long uintptr;
+@0x0	int lalala;
+@0x0	int zero;
+@['cc:"stdcall",
+  'offset:100]	void function(int a);
+@0x64	int onehundred;
+@0x111	void *oneeleven;
+
+typedef char ary2_t [80][81];
+typedef unsigned char ary3_t [80][81][82][83];
+typedef char ary_t [80];
+typedef int fun2_t(int,long,fun_t,void *);
+typedef void fun_t(void);
+typedef short int16;
+typedef long int32;
+typedef long long int64;
+typedef char int8;
+typedef int silly;
+struct s1 {
+	@0x0	int d;
+	@0x4;
+};
+struct s2 {
+	@0x0	int a;
+	@0x4	int b;
+	@0x8;
+};
+typedef unsigned short uint16;
+typedef unsigned long uint32;
+typedef unsigned long long uint64;
+typedef unsigned char uint8;
+typedef unsigned long uintptr;
+@0x0	int lalala;
+@0x0	int zero;
+@['cc:"stdcall",
+  'offset:100]	void function(int a);
+@0x64	int onehundred;
+@0x111	void *oneeleven;
+struct s1

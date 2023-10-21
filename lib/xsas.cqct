@@ -1,0 +1,76 @@
+// an expanding address space
+
+@global xsas_defined;
+
+if (xsas_defined == nil)
+{
+@global mkxsas, mkxs;
+xsas_defined = 1;
+
+@define mkxsas()
+{
+	@local get, put, map, ismapped, dat;
+	@local l, m, s, as;
+
+	@define get(self, r)
+	{
+		@local b, e;
+
+		b = rangebeg(r);
+		e = b+rangelen(r);
+		if(e <= l)
+			return substr(s, b, e);
+		else
+			error("xsas out of bounds get");
+	}
+
+	@define put(self, r, x)
+	{
+		@local b, e, nm, ns;
+
+		b = rangebeg(r);
+		e = b+rangelen(r);
+		if(e > l)
+			l = e;
+		if(e <= m)
+			return strput(s, b, x);
+		else{
+			nm = 2*e;
+			ns = mkstr(nm);
+			strput(ns, 0, s);
+			s = ns;
+			m = nm;
+			return put(self, r, x);
+		}
+	}
+
+	@define map(self)
+	{
+		return vector(mkrange(0, l));
+	}
+
+	@define ismapped(self, r)
+	{
+		return isrinr(r, map(self));
+	}
+
+	@define dat(self)
+	{
+		return substr(s, 0, l);
+	}
+
+	l = 0;
+	m = 128;
+	s = mkstr(m);
+	as = mkas([ 'get : get, 'put : put,
+		    'map : map, 'ismapped : ismapped,
+		    'dat : dat ], "xsas");
+	return as;
+}
+
+@define mkxs()
+{
+	return (char*){mkxsas()}0;
+}
+
+}

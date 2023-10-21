@@ -1,0 +1,3 @@
+ids = #[ #id('c), #id('d), #id('e) ];
+e = #`{ @lambda ( a, b, #,@ids, f, g) { nil; } };
+printf("%a\n", e);

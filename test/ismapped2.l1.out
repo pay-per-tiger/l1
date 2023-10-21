@@ -1,0 +1,3 @@
+ismapped(p) == 1
+ismapped(q) == 1
+ismapped(r) == 1

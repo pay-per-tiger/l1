@@ -1,0 +1,80 @@
+@define mkchaser(fn)
+{
+	@local seen;
+	seen = mktab();
+	return @lambda(p){
+		if(p)
+			work(domof(p), [p], fn, seen);
+
+		return nil;
+	};
+}
+
+@define chasetype(t)
+{
+	if(istypedef(t))
+		return chasetype(typedeftype(t));
+
+	return t;
+}
+
+@define chaseable(t)
+{
+	t = chasetype(t);
+	if(!isptr(t))
+		return 0;
+	if(!issu(chasetype(subtype(t))))
+		return 0;
+
+	return 1;
+}
+
+@define work(dom, wk, fn, seen)
+{
+	@local x, y, m, ls, i;
+	while(length(wk) > 0){
+		x = pop(wk);
+		if(seen[x] != nil)
+			continue;
+		ls = links(x);
+		seen[x] = 1;
+		fn(x, ls);
+		m = length(ls);
+		for(i = 0; i < m; i++){
+			y = pop(ls);
+			if(y && ismapped(y))
+				append(wk, y);
+		}
+	}
+}
+
+@define links(p)
+{
+	@local t, l;
+	@local loop, pft, q, i, n;
+
+	l = [];
+	@define loop(p)
+	{
+		t = chasetype(@typeof(*p));
+		if (isptr(t))
+			append(l, *p);
+		else if(isstruct(t)){
+			p = (void*)p;
+			foreach(@lambda(f){
+					pft = mkctype_ptr(fieldtype(f));
+					q = {looktype(domof(p),pft)}(p+fieldoff(f));
+					loop(q);
+				}, fields(t));
+		}else if(isarray(t)){
+			n = arraynelm(t);
+			q = *p;
+			for(i = 0; i < n; i++)
+				loop(&q[i]);
+		}
+	}
+
+	loop(p);
+
+	return l;
+}

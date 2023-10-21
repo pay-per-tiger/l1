@@ -1,0 +1,7 @@
+// test implicit conversion to sas
+s = "abc";
+sas = asof((char *)s);
+dom = mkdom(c32le, sas);
+p = (char*){dom}0;
+putbytes(p+3, "");
+printf("%B\n", s);

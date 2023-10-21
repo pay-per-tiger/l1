@@ -1,0 +1,15 @@
+
+@defstx @onload() {
+	setloadpath(push(loadpath(),"."));
+	return #[];
+}
+@onload();
+
+@add_loadpath(loadpath()[0] + "/../test/libs");
+
+compile(parse("@export(lalala);", "<eval-input>"));
+
+compile(parse("@import(lalala);", "<eval-input>"));
+
+compile(parse("@with_imports(recursive) {};", "<eval-input>"));
+

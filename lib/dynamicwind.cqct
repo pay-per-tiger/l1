@@ -1,0 +1,124 @@
+@global dynamicwind, $dynamicwind, syscallcc, applyk;
+@global $winders;
+
+{
+	$winders = nil;
+	syscallcc = callcc;
+
+	@defloc listtail(l, n)
+	{
+		if(n == 0)
+			return l;
+		return listtail(cdr(l), n-1);
+	}
+
+	@defloc commontail(x, y)
+	{
+		@local lx, ly;
+
+		@defloc loop(x, y)
+		{
+			if(eq(x, y))
+				return x;
+			else
+				return loop(cdr(x), cdr(y));
+		}
+
+		lx = length(x);
+		ly = length(y);
+		return loop((lx > ly) ? listtail(x, lx-ly) : x,
+			    (ly > lx) ? listtail(y, ly-lx) : y);
+	}
+
+	@defloc dowind(new)
+	{
+		@local tail;
+
+		@defloc lout(ls)
+		{
+			if(!eq(ls, tail)){
+				$winders = cdr(ls);
+				cdr(car(ls))();
+				lout(cdr(ls));
+			}
+		}
+
+		@defloc lin(ls)
+		{
+			if(!eq(ls, tail)){
+				lin(cdr(ls));
+				car(car(ls))();
+				$winders = ls;
+			}
+		}
+
+		tail = commontail(new, $winders);
+		lout($winders);
+		lin(new);
+	}
+
+	@define callcc(f)
+	{
+		syscallcc(@lambda(k){
+				@local save, r;
+				save = $winders;
+				r = mkcontinuation(continuationstack(k),
+						   @lambda(val){
+							   if(!eq(save, $winders))
+								   dowind(save);
+							   continuationfn(k)(val);
+						   });
+				f(r);
+			});
+	}
+
+	@define $dynamicwind(in, body, out)
+	{
+		@local rv;
+		in();
+		$winders = cons(cons(in, out), $winders);
+		rv = body();
+		$winders = cdr($winders);
+		out();
+		return rv;
+	}
+
+	dynamicwind = $dynamicwind;
+
+	@defloc $applyk(fn, succ, fail, arg ...)
+	{
+		@local olderr, done;
+
+		@defloc err(msg)
+		{
+			callcc(@lambda(k){
+					done(@lambda() { fail(msg); });
+				});
+		}
+
+		@defloc $doit()
+		{
+			@local rv;
+			rv = apply(apply, fn, arg);
+			done(@lambda() { succ(rv); });
+		}
+
+		callcc(@lambda(k){
+				done = k;
+				dynamicwind(
+					@lambda(){
+						olderr = errorhandler;
+						errorhandler = err;
+					},
+					$doit,
+					@lambda(){
+						errorhandler = olderr;
+					});
+			})();
+	}
+
+	@define applyk(arg ...)
+	{
+		apply($applyk, arg);
+	}
+}

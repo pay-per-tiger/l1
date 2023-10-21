@@ -1,0 +1,78 @@
+@include <sys.cqct>
+
+printf("opening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_CREAT|unix`O_WRONLY,0600);
+printf("fd: %d\n",foo);
+
+@global buf;
+buf="this is some bogus text";
+printf("writing...\n");
+sys_write(foo,buf,length(buf));
+
+printf("closing\n");
+sys_close(foo);
+
+printf("reopening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_RDONLY,0600);
+printf("fd: %d\n",foo);
+
+m=sys_mmap(0,4096,unix`PROT_READ,unix`MAP_SHARED,foo,0);
+printf("mapped\n");
+
+sys_close(foo);
+
+m=(unsigned char *){mkmas(m,4096)}m;
+
+printf("mmap equal? %a\n",buf == getbytes(m,strlen(m)));
+
+printf("reopening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_RDONLY,0600);
+
+b=malloc(1024);
+l=sys_read(foo,b,1024);
+
+printf("read %d bytes...\n",l);
+
+printf("read equal? %a\n",((l == strlen(buf)) &&
+                           (buf == getbytes(b,strlen(b)))
+                          ));
+
+sys_close(foo);
+
+self=nil;
+
+switch(uname()[0]) {
+    case "Linux": self = "/proc/self/exe"; break;
+    case "FreeBSD":
+    case "Darwin":
+    case "DragonFly":
+        self = "/proc/curproc/file"; break;
+    case "NetBSD":
+        self = "/proc/curproc/exe"; break;
+    default:
+        fprintf(stderr, "Can't test readlink on this platform\n");
+        printf("readlink succeeded: 1, lengths match: 1\n");
+        printf("readlink succeeded: 1, lengths match: 1\n");
+        printf("readlink succeeded: 1, lengths match: 1\n");
+}
+
+if (self != nil) {
+    @local b, r, f;
+
+    //test when b is a string
+    b = mkstr(100);
+    r = sys_readlink(self, b, 100);
+    printf("readlink succeeded: %d, lengths match: %d\n",
+            r >= 0, r == strlen((char*)b));
+
+    //test when b is a cvalue
+    b = (char*)mkstr(100);
+    r = sys_readlink(self, b, 100);
+    printf("readlink succeeded: %d, lengths match: %d\n",
+            r >= 0, r == strlen((char*)b));
+
+    //test when the file is a cvalue
+    r = sys_readlink((char*)self, b, 100);
+    printf("readlink succeeded: %d, lengths match: %d\n",
+            r >= 0, r == strlen((char*)b));
+}

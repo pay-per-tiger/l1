@@ -1,0 +1,23 @@
+@define consume1(g)
+{
+	@local x;
+
+	x = g();
+	if(x != nil)
+		printf("guardian returned %a\n", x);
+	else
+		printf("guardian is empty\n");
+	return x;
+}
+
+g = mkguardian();
+consume1(g);
+s = "abc";
+g(s);
+g(s);
+g([1,2,3]);
+s = nil;
+fullgc();
+
+while(consume1(g) != nil)
+	;

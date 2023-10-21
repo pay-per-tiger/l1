@@ -1,0 +1,3 @@
+5
+error: undefined type: struct foo *
+	#0                   entry	(mix2.l1:21)

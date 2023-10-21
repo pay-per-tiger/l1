@@ -1,0 +1,13 @@
+
+@include <syslib.cqct>
+
+printf("%a\n",mapfile("emptyfile"));
+
+printf("before:\n");
+x=mapfile("mapfile_test.l1");
+printf("%a\n",x);
+
+printf("after:\n");
+x[0]='&';
+printf("%a\n",x);
+

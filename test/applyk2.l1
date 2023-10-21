@@ -1,0 +1,11 @@
+errorhandler=@lambda(msg) {
+	printf("error inside the failure branch works: %s\n",msg);
+	currentreset(nil);
+};
+
+applyk(printf,
+       @lambda(r) { r; },
+       @lambda(msg) { error("throw: %s", msg); },
+       ["%s", 1000]);
+
+printf("but not well enough");

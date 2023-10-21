@@ -1,0 +1,2184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>Cinquecento Libraries</title>
+<link rel="stylesheet" type="text/css" href="reset.css"/>
+<link rel="stylesheet" type="text/css" href="styles.css"/>
+</head>
+
+<body>
+
+<div id="side1">
+<a href="#sec:introduction">Introduction</a><br />
+<br />
+<em>Standard Libraries</em><br />
+<a href="#lib:asutil">asutil</a><br />
+<a href="#lib:core.cqct">core</a><br />
+<a href="#lib:dump.cqct">dump</a><br />
+<a href="#lib:dynamictypes.cqct">dynamictypes</a><br />
+<a href="#lib:elf.cqct">elf</a><br />
+<a href="#lib:nsgraph.cqct">nsgraph</a><br />
+<a href="#lib:nsutil.cqct">nsutil</a><br />
+<a href="#lib:re.cqct">Regular Expression Library</a><br />
+<a href="#lib:rbtree.cqct">Red Black Tree</a><br />
+<a href="#lib:rangeset.cqct">Range Sets</a><br />
+<a href="#lib:strings.cqct">strings</a><br />
+<a href="#lib:gdb.cqct">gdb</a><br />
+</div>
+
+<div id="content">
+
+<div id="title">
+<h3>Cinquecento Libraries</h3>
+</div>
+
+<h4 id="sec:introduction">Introduction</h4>
+
+<p>
+This document describes various libraries provided with
+the L1 implementation of Cinquecento. It is not
+complete.  See <a href=man.html>the L1 Manual</a> for
+more details on Cinquecento and L1.
+</p>
+
+<h4 id="sec:stdlib">Standard Libraries</h4>
+
+<p>
+The L1 implementation of Cinquecento comes with several 
+standard libraries stored
+in the lib/ subdirectory. Since they are included in
+l1's load path, these libraries are loaded via the form:
+</p>
+<div class="code">
+@include &lt;<span class="arg">library</span>&gt;<br />
+</div>
+
+<p>
+This section gives non-exhaustive describions 
+for several of the provided libraries.
+</p>
+
+<h5 id="lib:asutil.cqct">asutil.cqct</h5>
+
+<p>
+<span class="id">asutil.cqct</span> provides code for 
+loading, saving, and copying address spaces. 
+</p>
+
+<div class="docitem" id="fn:asload">
+<div class="proto">
+<div class="function">
+<span class="id">asload(<span class="arg">filename</span>)</span>
+</div>
+<div class="param">
+<span class="arg">filename</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+Loads the address space saved to the file 
+in <span class="arg">filename</span>.
+</div>
+</div>
+
+<div class="docitem" id="fn:asload_str">
+<div class="proto">
+<div class="function">
+<span class="id">asload_str(<span class="arg">str</span>)</span>
+</div>
+<div class="param">
+<span class="arg">str</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+Loads the address space saved in the string
+<span class="arg">str</span>.
+</div>
+</div>
+
+<div class="docitem" id="fn:assave">
+<div class="proto">
+<div class="function">
+<span class="id">assave(<span class="arg">as</span>,
+			<span class="arg">filename</span>)</span>
+</div>
+<div class="param">
+<span class="arg">as</span>: <span class="type">address space</span> 
+<span class="arg">filename</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">undefined</span>
+</div>
+</div>
+<div class="desc">
+Saves the address space 
+<span class="arg">as</span>
+to the file <span class="arg">filename</span>.
+</div>
+</div>
+
+<div class="docitem" id="fn:assave_str">
+<div class="proto">
+<div class="function">
+<span class="id">assave_str(<span class="arg">as</span>)</span>
+</div>
+<div class="param">
+<span class="arg">as</span>: <span class="type">address space</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+Saves the address space 
+<span class="arg">as</span> to a string, and returns that string.
+</div>
+</div>
+
+<div class="docitem" id="fn:ascopy">
+<div class="proto">
+<div class="function">
+<span class="id">ascopy(<span class="arg">as</span>)</span>
+</div>
+<div class="param">
+<span class="arg">as</span>: <span class="type">address space</span> 
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+Creates a copy of the address space <span class="arg">as</span>, 
+and returns the copy. No changes to the returned address space
+affect the passed address space.
+</div>
+</div>
+
+<div class="docitem" id="fn:mkasoff">
+<div class="proto">
+<div class="function">
+<span class="id">mkasoff(<span class="arg">as</span>,
+			<span class="arg">offset</span>)</span>
+</div>
+<div class="param">
+<span class="arg">as</span>: <span class="type">address space</span> 
+<span class="arg">offset</span>: <span class="type">int</span> 
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+  Creates a new address space with the same contents as the the provided
+  address space but with addresses changed by offset. That is, address
+  0 of the new adddress space will be offset offset of as.
+</div>
+</div>
+
+<h5 id="lib:core.cqct">core.cqct</h5>
+
+<p>
+<span class="id">core.cqct</span> provides functionality for loading
+a core file as an address space.
+</p>
+
+<div class="docitem" id="fn:mkcoreas">
+<div class="proto">
+<div class="function">
+<span class="id">mkcoreas(<span class="arg">fname</span>)</span>
+</div>
+<div class="param">
+<span class="arg">fname</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+	Returns an domain for the provided core file representing that program
+	at the point at which the core file was created. The domain defines
+	the functions getXXX, where XXX can be any of the standard register
+	names. 
+</div>
+</div>
+
+<h5 id="lib:dump.cqct">dump.cqct</h5>
+
+<p>
+<span class="id">dump.cqct</span> provides code for printing
+out namespaces and the values associated with typed pointers.
+</p>
+
+<b>This library will be DEPRECATED and replaced soon. Do not use.</b>
+
+
+<div class="docitem" id="fn:printtype">
+<div class="proto">
+<div class="function">
+<span class="id">printtype(<span class="arg">t</span>)</span>
+</div>
+<div class="param">
+<span class="arg">t</span>: <span class="type">ctype</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+Returns a string representation
+of the provided ctype that can be included inside a @names directive. 
+</div>
+</div>
+
+<div class="docitem" id="fn:dumpns">
+<div class="proto">
+<div class="function">
+<span class="id">dumpns(<span class="arg">dn</span>)</span>
+</div>
+<div class="param">
+<span class="arg">dn</span>: 
+Domain or name space to be printed.
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+Prints all types in the given domain or name space to standard out.
+</div>
+</div>
+
+<div class="docitem" id="fn:objectStr">
+<div class="proto">
+<div class="function">
+<span class="id">objectstr(<span class="arg">x</span>)</span>
+</div>
+<div class="param">
+<span class="arg">x</span>: 
+Pointer to a cvalue. 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+Pretty-prints the object pointed to by x based on x's ctype to
+a string, and returns that string.
+</div>
+</div>
+
+<h5 id="lib:dynamictypes.cqct">dynamictypes.cqct</h5>
+
+<p>
+This file provides the ability to create dynamic types, or types
+that change depending on the memory they represent. 
+For example, consider the following vector type:
+</p>
+
+<div class="code">
+<pre>
+struct Vector {
+        unsigned int size;
+        int data[];
+};
+</pre>
+</div>
+The data pointer is actually an array of length size.
+With dynamic typing, one can specify types such that a pointer
+<span class="id">p</span> pointing to an object of type 
+<span class="id">Vector</span> can be translated into the appropriate
+type using the <span class="id">refine</span> function. In this case,
+that type will be:
+<div class="code">
+<pre>
+stuct Vector {
+        unsigned int size;
+	int data[p->size];
+};
+</pre>
+</div>
+
+The basic idea is for the person defining the type to include an 
+extra mapping in fields for the
+keyword "refine", which specifies a function for performing the
+transformation. Then for a pointer to an object p, one can call
+refine(p) to create a pointer that points to the refined version
+of the type of p.
+
+For a complete example, see the <span class="function">example</span>
+function in the file <span class="id">dynamictypes.cqct</span>.
+
+<div class="docitem" id="fn:refine">
+<div class="proto">
+<div class="function">
+<span class="id">refine(<span class="arg">p</span>)</span>
+</div>
+<div class="param">
+<span class="arg">p</span>: 
+A cvalue pointer. 
+</div>
+<div class="returns">
+<span class="type">A cvalue pointer.</span>
+</div>
+</div>
+<div class="desc">
+Returns a pointer to the same address as is pointed to by 
+<span class="arg">p</span>, but points to a refined version of
+<span class="arg">p</span>'s type. The newly refined type inherits
+any refinement properties from the old type so that further calls
+to refine will behave as expected. If 
+any part of the object <span class="arg">p</span> points to is
+unmapped, or if any part of the refined structure <span class="arg">p</span>
+would have pointed to on return is unmapped, then no changes are made.
+</div>
+</div>
+
+<h5 id="lib:elf.cqct">elf.cqct</h5>
+
+<p>
+<span class="id">elf.cqct</span> contains code for handling elf files.
+Much of this function provides machinery to keep the client code unaware
+of whether or not the elf file underconsideration contains a 32 or 64 bit
+address space. The recode bd
+type, which is instantiated through <a href=#fn:mkelfrec>mkelfrec</a>,
+is where the elf domain is contained. The elfsym types, which are 
+created via <a href=#fn:getcqctelfsym>getcqctelfsym</a> contain information
+about specific elf symbols. 
+</p>
+
+<div class="docitem" id="record:bd">
+Record <span class="id">bd</span> created by 
+	<a href=#fn:mkelfrec>mkelfrec</a>
+<div class="field">
+<span class="id">rootns</span>: namespace for the elf file</span>
+</div>
+<div class="field">
+<span class="id">elf</span>: domain for the elf file</span>
+</div>
+</div>
+
+<div class="docitem" id="type:elfsym">
+Vector <span class="id">elfsym</span> is used to store information on elf 
+symbols. These are created by <a href=#fn:getcqctelfsym>getcqctelfsym</a>,
+and can be printed with <a href=#fn:showsym>showsym</a>.
+That information can be harvested directly by the following functions:
+<div class="field">
+<span class="id">elfname(esym)</span>: returns the name (field 0)</span>
+</div>
+<div class="field">
+<span class="id">elfaddr(esym)</span>: returns the address (field 1)</span>
+</div>
+<div class="field">
+<span class="id">elftype(esym)</span>: returns the type (field 2)</span>
+</div>
+<div class="field">
+<span class="id">elfvisibility(esym)</span>: returns the visibility (field 3)</span>
+</div>
+<div class="field">
+<span class="id">elfsize(esym)</span>: returns the size (field 4)</span>
+</div>
+<div class="field">
+<span class="id">elfinfo(esym)</span>: returns the info (field 5)</span>
+</div>
+<div class="field">
+<span class="id">elfother(esym)</span>: returns the other stuff (field 6)</span>
+</div>
+<div class="field">
+<span class="id">elfshndx(esym)</span>: returns the type (field 7)</span>
+</div>
+</div>
+
+<div class="docitem" id="fn:dumpsym">
+<div class="proto">
+<div class="function">
+<span class="id">dumpsym(<span class="arg">name</span>,
+	<span class="arg">esym</span>)</span>
+</div>
+<div class="param">
+<span class="arg">name</span>: <span class="type">string</span> 
+</div>
+<div class="param">
+<span class="arg">esym</span>: <span class="type">struct ElfXX_Sym*</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	For an ElfXX_Sym* object with name name, print its contents.
+</div>
+</div>
+
+<div class="docitem" id="fn:getcqctelfsym">
+<div class="proto">
+<div class="function">
+	<span class="id">getcqctelfsym(
+		<span class="arg">edom</span>,
+		<span class="arg">esym</span>,
+		<span class="arg">name</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+<span class="arg">esym</span>: <span class="type">ElfXX_Sym*</span> 
+</div>
+<div class="returns">
+<span class="type">vector</span>
+</div>
+</div>
+<div class="desc">
+	Convert a raw ELF symbol from the binary into a Cinquecento list of
+	the processed field values of type <a href=#type:elfsym>elfsym</a>.
+</div>
+</div>
+
+<div class="docitem" id="fn:getelfsecname">
+<div class="proto">
+<div class="function">
+	<span class="id">getelfsecname(
+		<span class="arg">edom</span>,
+		<span class="arg">ind</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+<span class="arg">ind</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+	Get the name of an elf section. This function does not check that there
+	actually is a section at that index.
+</div>
+</div>
+
+<div class="docitem" id="fn:getelfsection">
+<div class="proto">
+<div class="function">
+	<span class="id">getelfsection(
+		<span class="arg">edom</span>,
+		<span class="arg">name</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+<span class="arg">name</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+	Get a byte string containing the data of the named ELF section
+	from the provided elf domain (returns "" if no section with that
+	name exists).
+</div>
+</div>
+
+<div class="docitem" id="fn:getelfsegment">
+<div class="proto">
+<div class="function">
+	<span class="id">getelfsegment(
+		<span class="arg">edom</span>,
+		<span class="arg">n</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+<span class="arg">n</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">ElfXX_Phdr*</span>
+</div>
+</div>
+<div class="desc">
+	Return a byte string containing the data of ELF section number n.
+</div>
+</div>
+
+<div class="docitem" id="fn:getelfsegmenthdr">
+<div class="proto">
+<div class="function">
+	<span class="id">getelfsegmenthdr(
+		<span class="arg">edom</span>,
+		<span class="arg">n</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+<span class="arg">n</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">ElfXX_Phdr*</span>
+</div>
+</div>
+<div class="desc">
+	Gets header number n from the provided elf domain.
+	Returns null if there is no header n.
+</div>
+</div>
+
+<div class="docitem" id="fn:getelfsyms">
+<div class="proto">
+<div class="function">
+<span class="id">getelfsyms(<span class="arg">edom</span>)</span>
+</div>
+<div class="param">
+<span class="arg">edom</span>: <span class="type">domain</span> 
+</div>
+<div class="returns">
+<span class="type">vector</span>
+</div>
+</div>
+<div class="desc">
+	Returns a vector of cqct symbols in the given elf domain
+</div>
+</div>
+
+<div class="docitem" id="fn:getsyms">
+<div class="proto">
+<div class="function">
+<span class="id">getsyms(<span class="arg">elfdom</span>)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="returns">
+<span class="type">table</span>
+</div>
+</div>
+<div class="desc">
+	prints the symbols in a given elf domain, returning a table
+	mapping strings to pointers to ElfXX_Sym objects.
+</div>
+</div>
+
+<div class="docitem" id="fn:mkelfrec">
+<div class="proto">
+<div class="function">
+<span class="id">mkelfrec(<span class="arg">binfile</span>)</span>
+</div>
+<div class="param">
+<span class="arg">binfile</span>: <span class="type">binary string</span> 
+</div>
+<div class="returns">
+<span class="type">bd record</span>
+</div>
+</div>
+<div class="desc">
+	Returns a bd record describing an elf file.
+</div>
+</div>
+
+<div class="docitem" id="fn:showallelfsectionheaders">
+<div class="proto">
+<div class="function">
+<span class="id">showallelfsectionheaders(<span class="arg">elfdom</span>)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints all sections headers from the given elf domain.
+</div>
+</div>
+
+<div class="docitem" id="fn:showelfheader">
+<div class="proto">
+<div class="function">
+<span class="id">showelfheader(<span class="arg">elfdom</span>)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints the root header from the elf domain.
+</div>
+</div>
+
+<div class="docitem" id="fn:showelfsym">
+<div class="proto">
+<div class="function">
+	<span class="id">showelfsym(
+		<span class="arg">elfdom</span>,
+		<span class="arg">addr</span>,
+		<span class="arg">strind</span>
+		)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+	<span class="arg">addr</span>: <span class="type">void*</span> 
+</div>
+<div class="param">
+	<span class="arg">strind</span>: <span class="type">int</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints a description of the elf symbol at the given addr with
+	the given offset into the e_shoff table.
+</div>
+</div>
+
+<div class="docitem" id="fn:showsectionheader">
+<div class="proto">
+<div class="function">
+	<span class="id">showsectionheader(
+		<span class="arg">elfdom</span>,
+		<span class="arg">sbase</span>,
+		<span class="arg">index</span>
+		)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+	<span class="arg">sbase</span>: 
+	<span class="type">elfdom`Elf64_Shdr*</span>  or
+	<span class="type">elfdom`Elf32_Shdr*</span> 
+</div>
+<div class="param">
+<span class="arg">index</span>: <span class="type">int</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints a section header at index for the given elf domain.
+</div>
+</div>
+
+<div class="docitem" id="fn:showsegmentheader">
+<div class="proto">
+<div class="function">
+	<span class="id">showsegmentheader(
+		<span class="arg">eseg</span>)</span>
+</div>
+<div class="param">
+<span class="arg">elfdom</span>: <span class="type">domain</span> 
+</div>
+<div class="param">
+	<span class="arg">eseg</span>: 
+	<span class="type">elfdom`Elf64_Phdr*</span>  or
+	<span class="type">elfdom`Elf32_Phdr*</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Print informaiton in an ElfXX_Phdr* object.
+</div>
+</div>
+
+<div class="docitem" id="fn:showsym">
+<div class="proto">
+<div class="function">
+<span class="id">showsym(<span class="arg">esym</span>)</span>
+</div>
+<div class="param">
+<span class="arg">esym</span>: <span class="type">elfsym</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Print information in the given 
+	<a href=#type:elfsym>elfsym</a>.
+</div>
+</div>
+
+
+
+
+<div class="docitem" id="fn:show_elf_addrs">
+<div class="proto">
+<div class="function">
+<span class="id">show_elf_addrs(<span class="arg">syms</span>)</span>
+</div>
+<div class="param">
+<span class="arg">syms</span>: <span class="type">vector</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints the address (in hex) for every vector in the list.
+</div>
+</div>
+
+<div class="docitem" id="fn:show_elf_syms">
+<div class="proto">
+<div class="function">
+<span class="id">show_elf_syms(<span class="arg">syms</span>)</span>
+</div>
+<div class="param">
+<span class="arg">syms</span>: <span class="type">vector</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Runs showsym over every entry in the given array.
+</div>
+</div>
+
+<h5 id="lib:nsgraph.cqct">nsgraph.cqct</h5>
+
+<p>
+<span class="id">nsgraph.cqct</span> provides code for 
+creating and analyzing graphs of types inferred from a namespace.
+</p>
+
+<div class="docitem" id="fn:gentypegraph">
+<div class="proto">
+<div class="function">
+	<span class="id">gentypegraph(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">table</span>
+</div>
+</div>
+<div class="desc">
+	Returns a table representation of the graph implied by the 
+	structures and unions in the given namespace.
+</div>
+</div>
+
+<div class="docitem" id="fn:printtypegraph">
+<div class="proto">
+<div class="function">
+	<span class="id">printtypegraph(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints the typegraph associated with the given namespace.
+</div>
+</div>
+
+<div class="docitem" id="fn:printtypegraph_dot">
+<div class="proto">
+<div class="function">
+	<span class="id">printtypegraph_dot(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints a dot compatible representation of the typegraph 
+	associated with the given namespace.
+</div>
+</div>
+
+<div class="docitem" id="fn:typegraph_edge_iter">
+	<div class="proto">
+		<div class="function">
+			<span class="id">typegraph_edge_iter(<span class="arg">tg</span>,
+				<span class="arg">fn</span>)
+			</span>
+		</div>
+		<div class="param">
+			<span class="arg">tg</span>: <span class="type">table representation of
+				the typegraph</span> 
+		</div>
+		<div class="param">
+
+			<span class="arg">fn</span>: <span class="type">function</span>
+		</div>
+		<div class="returns">
+			<span class="type">nil</span>
+		</div>
+	</div>
+	<div class="desc">
+		Runs fn(from_node,to_node) for all edges in the typegraph.
+	</div>
+</div>
+
+<div class="docitem" id="fn:typegraph_node_iter">
+	<div class="proto">
+		<div class="function">
+			<span class="id">typegraph_node_iter(<span class="arg">tg</span>,
+				<span class="arg">fn</span>)
+			</span>
+		</div>
+		<div class="param">
+			<span class="arg">tg</span>: <span class="type">table representation of
+				the typegraph</span> 
+		</div>
+		<div class="param">
+			<span class="arg">fn</span>: <span class="type">function</span>
+		</div>
+		<div class="returns">
+			<span class="type">nil</span>
+		</div>
+	</div>
+	<div class="desc">
+		Runs fn(from_node,to_nodes) for all nodes in the typegraph.
+		Note that the second parameter to fn will be a list.
+	</div>
+</div>
+
+
+<h5 id="lib:nsutil.cqct">nsutil.cqct</h5>
+
+<p>
+<span class="id">nsutil.cqct</span> provides code for 
+checking type equality, printing namespaces, and iterating
+over types in namespaces.
+</p>
+
+<div class="docitem" id="fn:all_types">
+<div class="proto">
+<div class="function">
+	<span class="id">all_types(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Print all the types in a namespace (not parsable by cqct).
+</div>
+</div>
+
+<div class="docitem" id="fn:mknsoff">
+<div class="proto">
+<div class="function">
+	<span class="id">mksnoff(<span class="arg">ns</span>,
+				 <span class="arg">off</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="param">
+<span class="arg">off</span>: <span class="type">unsigned integer</span> 
+</div>
+<div class="returns">
+<span class="type">name space</span>
+</div>
+</div>
+<div class="desc">
+	Returns a namespace whose symbols are are translated off from
+	their original location. For example, the symbol at offset 0x10 in 
+	ns1 will be at offset 0x20 in mknsoff(ns1,0x10). 
+	This namespace is implemented in such a way as to not interfere with
+	the caching provided by the sctl namespaces. 
+</div>
+</div>
+
+<div class="docitem" id="fn:nsdiff">
+<div class="proto">
+<div class="function">
+	<span class="id">nsdiff(<span class="arg">t1</span>,
+		<span class="arg">t2</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">n1</span>: <span class="type">type</span> 
+</div>
+<div class="param">
+<span class="arg">n2</span>: <span class="type">type</span> 
+</div>
+<div class="returns">
+<span class="type">array</span>
+</div>
+</div>
+<div class="desc">
+	Prints the types in each namespace that are not contained
+	in the other namespace or have a different definition in 
+	the other namespace. Returns [tab1, tab2, tab3] where tab1 
+	contains types in ns1 that are not
+	in ns2, and tab2 contains types in ns2 that are not in ns1, and tab3
+	maps types in either ns to a type with the same name in the other ns
+	that is not the same type.
+</div>
+</div>
+
+<div class="docitem" id="fn:nsiter">
+<div class="proto">
+<div class="function">
+	<span class="id">nsiter(<span class="arg">ns</span>,
+		<span class="arg">fn</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="param">
+<span class="arg">fn</span>: <span class="type">function</span> 
+</div>
+<div class="returns">
+<span class="type">array</span>
+</div>
+</div>
+<div class="desc">
+	Runs fn(type) for every type in the namespace.
+</div>
+</div>
+
+<div class="docitem" id="fn:nsjoin">
+<div class="proto">
+<div class="function">
+	<span class="id">nsjoin(<span class="arg">ns1</span>,
+		<span class="arg">ns2</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns1</span>: <span class="type">namespace</span> 
+</div>
+<div class="param">
+<span class="arg">ns2</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">namespace</span>
+</div>
+</div>
+<div class="desc">
+	retuns a namespace that contains all types and symbols in
+	both namespaces ns1 and ns2. When both namespaces define
+	a symbol or a type, the definition in ns2 is preferred.
+</div>
+</div>
+
+<div class="docitem" id="fn:nstostr">
+<div class="proto">
+<div class="function">
+	<span class="id">nstostr(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+    Returns an @names-parsable string representation of the namespace eqivalent
+    to that printed to standard out by <a href=#fn:printns>printns</a>.
+</div>
+</div>
+
+<div class="docitem" id="fn:printns">
+<div class="proto">
+<div class="function">
+	<span class="id">printns(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints the namespace in a format parsable by cqct in an @names
+	directive.
+</div>
+</div>
+
+<div class="docitem" id="fn:printtype">
+<div class="proto">
+<div class="function">
+	<span class="id">printtype(<span class="arg">t1</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">t1</span>: <span class="type">type</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Prints the type in a format parsable by cqct.
+</div>
+</div>
+
+<div class="docitem" id="fn:typeequal">
+<div class="proto">
+<div class="function">
+	<span class="id">typeequal(<span class="arg">t1</span>,
+		<span class="arg">t2</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">t1</span>: <span class="type">type</span> 
+</div>
+<div class="param">
+<span class="arg">t2</span>: <span class="type">type</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+	Recursivly checks that the two types are equal. 
+</div>
+</div>
+
+<div class="docitem" id="fn:typenameequal">
+<div class="proto">
+<div class="function">
+	<span class="id">typenameequal(<span class="arg">t1</span>,
+		<span class="arg">t2</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">t1</span>: <span class="type">type</span> 
+</div>
+<div class="param">
+<span class="arg">t2</span>: <span class="type">type</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+	Returns 0 if the type names are different, 1 if they are the same.
+	Does not recursivly check structures but instead checks that
+	they have the same name. Does check that arrays have the same length,
+	functions have the same parameter and return types.
+</div>
+</div>
+
+<div class="docitem" id="fn:types_with_ptrs">
+<div class="proto">
+<div class="function">
+	<span class="id">types_with_ptrs(<span class="arg">ns</span>)
+	</span>
+</div>
+<div class="param">
+<span class="arg">ns</span>: <span class="type">namespace</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+	Print all the types containing pointers.
+</div>
+</div>
+
+<h5 id="lib:rangeset.cqct">rangeset.cqct</h5>
+
+<p>
+<span class="id">rangeset.cqct</span> provides a data structure
+that stores a set of ranges in a minimal way. The rangeset structure
+is implemented with a red black tree, and allows one to add and 
+remove ranges with the guarantee that (1) a minimal number of ranges
+will be stored and (2) checking if a value is contained in a given rangeset
+will take O(log(n)) time (where n is the number of ranges stored). 
+Example usage:
+</p>
+
+<div class="code">
+<pre>
+@include &lt;rangeset.cqct&gt;
+rs = rangeset_create();
+rangeset_insert(rs,mkrange(50,100));
+rangeset_delete(rs,mkrange(60,5));
+rangeset_contains(rs,53); //returns 1
+rangeset_contains(rs,61); //returns 0
+rangeset_enumerate(rs); //returns [ range(50,10), range(65,85) ]
+</pre>
+</div>
+Because ranges only work with non-negative numbers,
+rangeset only work on non-negative integer ranges.
+
+<div class="docitem" id="fn:rangeset_create">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_create()
+    </span>
+</div>
+<div class="returns">
+<span class="type">rangeset</span>
+</div>
+</div>
+<div class="desc">
+    Returns an empty rangeset object
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_contains">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_contains(
+                <span class="arg">rs</span>,
+                <span class="arg">v</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="param">
+<span class="arg">v</span>: <span class="type">integer</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+    Returns 1 (true) if there is a range in the given range set that 
+    contains the given value v. Returns 0 (false) otherwise.
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_delete">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_delete(
+                <span class="arg">rs</span>,
+                <span class="arg">r</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="param">
+<span class="arg">r</span>: <span class="type">range</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    Removes the given range from the given rangeset. 
+    The rangeset will no longer "contain" any of the values in the given range.
+    If the rangeset did not contain those values to begin with, then there
+    is no change.
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_enumerate">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_enumerate(
+                <span class="arg">rs</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="returns">
+<span class="type">list</span>
+</div>
+</div>
+<div class="desc">
+    Returns a minimally sized list of ranges that cover exactly
+    the set of values covered by the given rangeset.
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_foreach">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_foreach(
+                <span class="arg">rs</span>,
+                <span class="arg">fn</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="param">
+<span class="arg">fn</span>: <span class="type">function</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    Runs the given function over a minimal representation of the
+    ranges covered by the given rangeset. That is, fn(r) will be
+    run for a minimal number of r that cover exactly the range covered
+    by this rangeset.
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_insert">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_insert(
+                <span class="arg">rs</span>,
+                <span class="arg">r</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="param">
+<span class="arg">r</span>: <span class="type">range</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    Inserts the given range into the given rangeset. 
+</div>
+</div>
+
+<div class="docitem" id="fn:rangeset_intersect">
+<div class="proto">
+<div class="function">
+    <span class="id">rangeset_intersect(
+                <span class="arg">rs</span>,
+                <span class="arg">r</span>
+        )
+    </span>
+</div>
+<div class="param">
+<span class="arg">rs</span>: <span class="type">rangeset</span> 
+</div>
+<div class="param">
+<span class="arg">r</span>: <span class="type">range</span> 
+</div>
+<div class="returns">
+<span class="type">list</span>
+</div>
+</div>
+<div class="desc">
+    Returns a list of all ranges that intersect the given range in
+    the given rangeset.
+</div>
+</div>
+
+
+<h5 id="lib:re.cqct">re.cqct</h5>
+
+<p>
+<span class="id">re.cqct</span> provides an API for using
+regular expressions in CQCT. Currently, regular expressions
+containing [], *, ., (), and ? are all supported with the
+same meanings as in PERL (run "man perlre" for more details),
+with the following exceptions:
+</p>
+<ul>
+    <li> () does not enable back references as
+    in PERL. 
+    <li> [] does not allow for ranges 
+    (i.e. - does not create a spanned class).
+</ul>
+Also as in PERL, \ is an escape character.
+</p>
+
+<p>
+This regular expression library uses a DFA to allow for matching
+in time O(n*m), where n is the length of the RE and m is the 
+length of the input. See Russ Cox's
+<a href=http://swtch.com/~rsc/regexp/regexp1.html>Regular Expression Matching</a> 
+for details. 
+</p>
+
+Example usage:
+<div class="code">
+<pre>
+@include &lt;re.cqct&gt;
+re_match("abc*d","abccccd"); //returns 1
+re_match("abc*d","accccd"); //returns 0
+re_match("abc*d","xxxabccccd"); //returns 0
+re_find("abc*d","xxxabccccd"); //returns 3 
+comp = re_create("abc*d"); //pre-compile the re
+re_match(comp,"abccccd"); //returns 1
+re_match(comp,"accccd"); //returns 0
+re_match(comp,"xxxabccccd"); //returns 0
+re_find(comp,"xxxabccccd"); //returns 3 
+</pre>
+</div>
+
+<div class="docitem" id="fn:re_create">
+<div class="proto">
+<div class="function">
+<span class="id">re_create(<span class="arg">re</span>)</span>
+</div>
+<div class="param">
+<span class="arg">re</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">DFA</span>
+</div>
+</div>
+<div class="desc">
+    Allows one to create the DFA associated with a given regular expression.
+    These DFA can be passed to the <a href=#fn:re_match>re_match</a> or 
+    <a href=#fn:re_find">re_find</a> functions.
+    If one is doing multiple matches with the same RE, then it is recommended
+    that one creates the DFA for that RE via this function, rather than forcing
+    re_match or re_find to re-create the DFA on each call.
+</div>
+</div>
+
+<div class="docitem" id="fn:re_find">
+<div class="proto">
+<div class="function">
+    <span class="id">re_find(<span class="arg">re</span>,
+                               <span class="arg">str</span>)</span>
+</div>
+<div class="param">
+    <span class="arg">re</span>: 
+    <span class="type">string</span> or
+    <span class="type">DFA</span> 
+</div>
+<div class="param">
+<span class="arg">str</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+    This function take a regular expression (either as a string or as the DFA 
+    output
+    from <a href=#fn:re_create>re_create</a>) and a string and returns the
+    first index in the string that matches the regular expression,
+    or -1 if no instances of the expression are found
+    in the given string.
+</div>
+</div>
+
+<div class="docitem" id="fn:re_findend">
+<div class="proto">
+<div class="function">
+    <span class="id">re_findend(<span class="arg">re</span>,
+      <span class="arg">str</span>
+      [,<span class="arg">idx</span>]
+      )</span>
+</div>
+<div class="param">
+    <span class="arg">re</span>: 
+    <span class="type">string</span> or
+    <span class="type">DFA</span> 
+</div>
+<div class="param">
+<span class="arg">str</span>: <span class="type">string</span> 
+</div>
+<div class="param">
+<span class="arg">idx</span>: <span class="type">int</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+    This function take a regular expression (either as a string or as the DFA 
+    output
+    from <a href=#fn:re_create>re_create</a>) and a string and matches
+    the string against the RE, returning the index of the final character
+    in the largest match. So for instance re_findend("aa","aaaa") will return
+    1 and re_findend("aa*","aaaa") will return 4. 
+    If the string is empty and the RE matches, 
+    this function will return 0. 
+    If the RE does not match, -1 will be returned.
+    If idx is provided, matching will start from the index idx of the 
+    given string.
+</div>
+</div>
+
+<div class="docitem" id="fn:re_match">
+<div class="proto">
+<div class="function">
+    <span class="id">re_match(<span class="arg">re</span>,
+                               <span class="arg">str</span>)</span>
+</div>
+<div class="param">
+    <span class="arg">re</span>: 
+    <span class="type">string</span> or
+    <span class="type">DFA</span> 
+</div>
+<div class="param">
+<span class="arg">str</span>: <span class="type">string</span> 
+</div>
+<div class="returns">
+<span class="type">int</span>
+</div>
+</div>
+<div class="desc">
+    This function take a regular expression (either as a string or as the DFA output
+    from <a href=#fn:re_create>re_create</a>) and a string and returns 1 if
+    the regular expression matches the <it>entire</it> string. Otherwise 0 is returned.
+</div>
+</div>
+
+<h5 id="lib:rbtree.cqct">rbtree.cqct</h5>
+
+<p>
+<span class="id">rbtree.cqct</span> provides an API for red black trees.
+Red black trees are balanced and provide O(n) insertion, deletion, and
+querying. 
+</p>
+
+<div class="docitem" id="fn:rbtree_create">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_create( <span class="arg">compare</span> )</span>
+</div>
+<div class="param">
+    <span class="arg">compare</span>: 
+    <span class="type">function</span> 
+</div>
+<div class="returns">
+<span class="type">rbtree</span>
+</div>
+</div>
+<div class="desc">
+    This function take a comparison function and returns an rbtree object,
+    that can be used in the rbtree_* functions below. The comparison function
+    takes two objects and returns an integer which is negative if the
+    first object is smaller than the second, positive if the first object
+    is larger than the second, and zero if the objects are equal.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_delete">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_delete(
+        <span class="arg">tree</span>,
+        <span class="arg">key</span> )
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">key</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="returns">
+<span class="type">bool</span>
+</div>
+</div>
+<div class="desc">
+    This function removes the key and its associated data from the
+    given rbtree. If multiple associations exist, an arbitrary one
+    is removed. It returns 1 if it was able to successfully remove
+    something, and 0 otherwise.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_enumerate">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_enumerate( <span class="arg">tree</span> )</span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="returns">
+<span class="type">list</span>
+</div>
+</div>
+<div class="desc">
+    This function returns a list of all [key,data] pairs in the
+    given tree ordered by key according to the tree's compare function.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_foreach">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_foreach(
+        <span class="arg">tree</span>,
+        <span class="arg">fn</span> )
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">fn</span>: 
+    <span class="type">function</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    This function runs the given function fn on each key/data association
+    in the given rbtree. It is required that fn <i>does not</i> modify
+    the given rbtree.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_insert">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_insert(
+        <span class="arg">tree</span>,
+        <span class="arg">key</span>,
+        <span class="arg">data</span>)
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">key</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="param">
+    <span class="arg">data</span>: 
+    <span class="type">anything</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    This function associates the given key with the given data in
+    the given rbtree. 
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_nearestlargerquery">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_nearestlargerquery(
+        <span class="arg">tree</span>,
+        <span class="arg">key</span>)
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">key</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="returns">
+<span class="type">nil or pair</span>
+</div>
+</div>
+<div class="desc">
+    This function returns the [k,data] associated with the smallest
+    k in the tree that is greater than and not equal to k. 
+    If multiple such k exist, 
+    then an arbitrary one is returned. If no such k not found
+    in the tree, then nil is returned.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_nearestsmallerquery">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_nearestsmallerquery(
+        <span class="arg">tree</span>,
+        <span class="arg">key</span>)
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">key</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="returns">
+<span class="type">nil or pair</span>
+</div>
+</div>
+<div class="desc">
+    This function returns the [k,data] associated with the largest
+    k in the tree that is less than and not equal to k. 
+    If multiple such k exist, 
+    then an arbitrary one is returned. If no such k not found
+    in the tree, then nil is returned.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_print">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_print(
+        <span class="arg">tree</span>
+        [,<span class="arg">fd</span>])
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">fd</span>: 
+    <span class="type">file descriptor</span> 
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+    This function prints a text version of the rbtree to fd (stdout
+    if fd is not provided). It uses "%a" to print both the key and
+    the data.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_query">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_query(
+        <span class="arg">tree</span>,
+        <span class="arg">key</span>)
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">key</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="returns">
+<span class="type">nil or anything</span>
+</div>
+</div>
+<div class="desc">
+    This function returns the data associated with the given key in
+    the given rbtree. If multiple data are associated with a given
+    key, then an arbitrary one is returned. If the key is not found
+    in the tree, then nil is returned.
+</div>
+</div>
+
+<div class="docitem" id="fn:rbtree_rangequery">
+<div class="proto">
+<div class="function">
+    <span class="id">rbtree_rangequery(
+        <span class="arg">tree</span>,
+        <span class="arg">lower</span>,
+        <span class="arg">upper</span>)
+    </span>
+</div>
+<div class="param">
+    <span class="arg">tree</span>: 
+    <span class="type">rbtree</span> 
+</div>
+<div class="param">
+    <span class="arg">lower</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="param">
+    <span class="arg">upper</span>: 
+    <span class="type">keytype</span> 
+</div>
+<div class="returns">
+<span class="type">list</span>
+</div>
+</div>
+<div class="desc">
+    This function returns a list of [key,data] pairs stored in the
+    given tree where the key is greater than or equal to <em>lower</em> and 
+    strictly less than <em>upper</em>. 
+</div>
+</div>
+
+<h5 id="lib:strings.cqct">strings.cqct</h5>
+
+<p>
+<span class="id">strings.cqct</span> provides various string manipulation
+and conversion utilities. It allows conversion between various 
+unicode string types and ascii, as well as conversion between ascii
+and hex.
+</p>
+
+<div class="docitem" id="fn:strtolower">
+    <div class="proto">
+        <div class="function">
+            <span class="id">strtolower(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cqct string</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Returns an lowercase copy of the provided string.
+    </div>
+</div>
+
+<div class="docitem" id="fn:strtoupper">
+    <div class="proto">
+        <div class="function">
+            <span class="id">strtoupper(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cqct string</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Returns an uppercase copy of the provided string.
+    </div>
+</div>
+
+<div class="docitem" id="fn:ucs2_to_ascii">
+    <div class="proto">
+        <div class="function">
+            <span class="id">ucs2_to_ascii(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cvalue pointer</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Converts two-null-byte terminated unicode string starting at s
+        to a cqct string containing ascii characters.
+        An error will be thrown when the unicode string 
+        contains non-ascii characters.
+    </div>
+</div>
+
+<div class="docitem" id="fn:ucs2n_to_ascii">
+    <div class="proto">
+        <div class="function">
+            <span class="id">ucs2n_to_ascii(s,n)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cvalue pointer</span> 
+        </div>
+        <div class="param">
+            <span class="arg">n</span>: 
+                <span class="type">int</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Converts unicode string containing 2n bytes to
+        a length n a cqct ascii string.
+        An error will be thrown when the unicode string 
+        contains non-ascii characters.
+    </div>
+</div>
+
+<div class="docitem" id="fn:hextobin">
+    <div class="proto">
+        <div class="function">
+            <span class="id">hextobin(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cqct string</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Converts the ascii-hex characters in the passed string
+        to their binary values, returning the result. 
+        An error will be thrown when given a string containing
+        non-hex values;
+    </div>
+</div>
+
+<div class="docitem" id="fn:bintohex">
+    <div class="proto">
+        <div class="function">
+            <span class="id">bintohex(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cqct string</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Converts the given binary string to an ascii-hex representation.
+    </div>
+</div>
+
+<div class="docitem" id="fn:hexdump">
+    <div class="proto">
+        <div class="function">
+            <span class="id">hexdump(s)</span>
+        </div>
+        <div class="param">
+            <span class="arg">s</span>: 
+                <span class="type">cqct string</span> 
+        </div>
+        <div class="returns">
+            <span class="type">cqct string</span>
+        </div>
+    </div>
+    <div class="desc">
+        Returns a string containing an xxd-style hexdump of the provided
+        cqct string. 
+    </div>
+</div>
+
+
+
+<h5 id="lib:gdb.cqct">gdb.cqct</h5>
+
+<p>
+<span class="id">gdb.cqct</span> provides access to an
+execution target over the GDB remote serial protocol
+("GDB stubs").
+</p>
+
+<p>
+The library provides a set of functions for directly
+speaking various messages of the GDB protocol:
+<span class="id">gdbbrk</span>,
+<span class="id">gdbc</span>,
+<span class="id">gdbg</span>,
+<span class="id">gdbm</span>,
+<span class="id">gdbM</span>,
+<span class="id">gdbs</span>,
+<span class="id">gdbS</span>,
+<span class="id">gdbz</span>,
+<span class="id">gdbZ</span>,
+<span class="id">gdbrecvpkt</span>.
+This set is likely to grow, and is not documented.
+</p>
+
+<p>
+Most users should use the high-level client interface,
+<span class="id">mkgdbctl</span>:
+</p>
+
+
+<div class="docitem" id="fn:mkgdbctl">
+<div class="proto">
+<div class="function">
+<span class="id">mkgdbctl(fd)</span>
+</div>
+<div class="param">
+<span class="arg">fd</span>: <span class="type">file descriptor</span> 
+</div>
+<div class="returns">
+<span class="type">ctl object</span>
+</div>
+</div>
+<div class="desc">
+The file descriptor <span class="arg">fd</span> should
+be the client endpoint of a connection to a GDB remote
+serial protocol server.  Returns a control object that
+supports several methods for accessing the remote
+target.  These methods are interfaces to GDB serial
+protocol, nothing more: their precise effect depends on
+the server implementation of the protocol.
+</p>
+
+<p>
+The methods are:
+</p>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">cont()</span>
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+Directs the remote target to resume execution.
+</div>
+</div>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">stop()</span>
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+Directs the remote target to stop execution.
+Returns after the stop-reply packet has been received.
+</div>
+</div>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">step()</span>
+</div>
+<div class="returns">
+<span class="type">nil</span>
+</div>
+</div>
+<div class="desc">
+Directs the remote target to single step.
+Returns upon completion of the step.
+</div>
+</div>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">wait()</span>
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+Waits for the server to send a stop-reply packet,
+indicating that the target execution has suspended or exited.
+Returns the body of the stop-reply packet, from
+which callers can determine the status of the target.
+</div>
+</div>
+
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">Z(<span class="arg">type</span>,<span class="arg">addr</span>,<span class="arg">len</span>)</span>
+</div>
+<div class="function">
+<span class="id">z(<span class="arg">type</span>,<span class="arg">addr</span>,<span class="arg">len</span>)</span>
+</div>
+<div class="param">
+<span class="arg">type</span>: <span class="type">cvalue</span> 
+</div>
+<div class="param">
+<span class="arg">addr</span>: <span class="type">cvalue</span> 
+</div>
+<div class="param">
+<span class="arg">len</span>: <span class="type">cvalue</span> 
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+<p>
+Sets (<span class="id">Z</span>) or clears
+(<span class="id">z</span>) a trap on various forms of access to target memory.
+<span class="arg">Type</span> specifies the
+type of trap, <span class="arg">addr</span> specifies the
+first address of the instrumented range, and <span class="arg">len</span>
+specifies the number of bytes in the range.
+</p>
+
+
+<p>
+The GDB protocol defines five possible values for <span class="arg">type</span>:
+</p>
+
+<div class="table-short">
+<table>
+
+<tr>
+<td>
+0
+</td>
+<td>
+software breakpoint
+</td>
+</tr>
+
+<tr>
+<td>
+1
+</td>
+<td>
+hardware breakpoint
+</td>
+</tr>
+
+<tr>
+<td>
+2
+</td>
+<td>
+memory write watchpoint
+</td>
+</tr>
+
+<tr>
+<td>
+3
+</td>
+<td>
+memory read watchpoint
+</td>
+</tr>
+
+<tr>
+<td>
+4
+</td>
+<td>
+memory access watchpoint
+</td>
+</tr>
+
+</table>
+</div>
+
+</div>
+</div>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">mem()</span>
+</div>
+<div class="returns">
+<span class="type">address space</span>
+</div>
+</div>
+<div class="desc">
+<p>
+Returns an address space backed by the address space of
+the target execution.
+</p>
+<p>
+BUG: The GDB serial protocol offers visibility into the
+layout of the target address, but
+the <span class="id">mem</span> method does not take
+advantage of it.  Instead, it assumes that the target
+completely maps a 64-bit address space.  Any access to
+memory that is not actually mapped will fail
+gracelessly.
+</p>
+</div>
+</div>
+
+<div class="docitem">
+<div class="proto">
+<div class="function">
+<span class="id">reg()</span>
+</div>
+<div class="returns">
+<span class="type">string</span>
+</div>
+</div>
+<div class="desc">
+<p>
+Returns the current values of the general register set
+of the target in a contiguous byte array.  This array
+represents the register set values, in binary, returned
+by the server; the client is responsible for its
+interpretation.
+</p>
+</div>
+</div>
+
+</div>
+</div>
+
+<p>
+The following example constructs a gdb control object
+to the GDB server at TCP port 10000 on the local host,
+and causes the target to single step ten times:
+</p>
+
+<div class="code">
+<pre>
+; @include &lt;gdb.cqct&gt;
+; ctl = mkgdbctl(tcpopen("localhost:10000"));
+; for(i = 0; i < 10; i++) ctl.step();
+</pre>
+</div>
+
+<p>
+This example constructs a domain <span class="id">dom</span>
+from the control object,
+using a separately provided name space:
+</p>
+
+<div class="code">
+<pre>
+; ns = @names c32le { @include "my.names" };
+; dom = mkdom(ns, ctl.mem());
+</pre>
+</div>
+
+
+</div>
+</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,24 @@
+linux = @names clp64le
+{
+	enum
+	{
+		TFD_CLOEXEC = 02000000,
+		TFD_NONBLOCK = 04000,
+		CLOCK_REALTIME = 0,
+		CLOCK_MONOTONIC = 1,
+		TFD_TIMER_ABSTIME = 1 << 0,
+	};
+
+	typedef long int __time_t;
+	struct timespec {
+		@0x0	__time_t tv_sec;
+		@0x8	long int tv_nsec;
+		@0x10;
+	};
+
+	struct itimerspec {
+		@0x0	struct timespec it_interval;
+		@0x10	struct timespec it_value;
+		@0x20;
+	};
+};

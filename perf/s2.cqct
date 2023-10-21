@@ -1,0 +1,22 @@
+@include "dostat.cqct"
+@include <profile.cqct>
+
+@define s2(snapfile)
+{
+	@local ns, as;
+
+	as = mksnapas(snapfile);
+	ns = @names clp64le { @include "./stat.names" };
+	dostat(ns, as);
+//	heapstat();
+}
+
+{
+	@local file;
+	if(length(args) == 1)
+		file = "./snap1";
+	else
+		file = args[1];
+	s2(file);
+//	profinsn();
+}

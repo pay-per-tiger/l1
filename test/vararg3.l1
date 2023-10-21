@@ -1,0 +1,23 @@
+printlist = @lambda(l) {
+	@local i;
+	for(i = 0; i < length(l); i++)
+		print(listref(l, i));
+};
+
+f = @lambda (){
+	@local x;
+	x = @lambda(arg ...) {
+	     @local f;
+	     if(length(arg) == 1){
+		  f = listref(arg, 0);
+		  f(1,2,3,4,5,6);
+	     }else{
+		  printlist(arg);
+	     }
+	};
+	return x;
+};
+
+fn = f();
+fn(fn);
+f()(f());

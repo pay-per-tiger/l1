@@ -1,0 +1,53 @@
+
+@global taskset_defined;
+if (taskset_defined == nil)
+{
+@local oldstart;
+@local boot;
+
+taskset_defined=1;
+
+@include <sys.cqct>
+
+@global move_to_cpu;
+move_to_cpu=nil;
+
+@global $l1start;
+
+oldstart=$l1start;
+
+@define boot() {
+
+	if(uname()[0]=="Linux") {
+
+		@define move_to_cpu(cpu) {
+			@local m,r;
+
+			m=mkstr(128);
+			m[cpu>>3] |= ( 1 << (cpu%8) );
+
+			r=sys_sched_setaffinity(sys_getpid(), 128, m);
+			if(!r)
+				return 0;
+
+			return -1;
+		};
+
+	} else {
+
+		@define move_to_cpu(cpu) {
+			fprintf(stderr,"CPU affinity not supported on %s\n",uname()[0]);
+			return -1;
+		};
+
+	}
+}
+
+@define $l1start(args ...) {
+	boot();
+	return apply(oldstart,args);
+}
+
+boot();
+
+}

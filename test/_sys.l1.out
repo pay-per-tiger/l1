@@ -1,0 +1,17 @@
+opening...
+fd: 3
+writing...
+closing
+reopening...
+fd: 3
+stat returns 0 (should succeed)
+size according to stat: 23 bytes
+mapped
+mmap equal? 1
+reopening...
+read 23 bytes...
+read equal? 1
+getpid() == sys_getpid() : 1
+child ppid == parent pid: 1
+child pgid == parent pid: 0
+setpgid works: 1

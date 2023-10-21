@@ -1,0 +1,79 @@
+@include <sys.cqct>
+
+@define ls(dir)
+{
+	@local das, dom, p, e, len;
+
+	if(!looktype(unix,@typename(struct dirent)))
+		error("no dirent for this platform");
+
+	das = _readdir(dir);
+	dom = mkdom(unix, das);
+	p = (void*){dom}0;
+	len = rangelen(das.map()[0]);
+	e = p+len;
+	p = (struct dirent*)p;
+	while(p < e){
+		printf("%s\n", p->d_name);
+		p++;
+	}
+}
+
+
+@define foreachfile(dir,fn)
+{
+	@local das, dom, p, e, len;
+
+	if(!looktype(unix,@typename(struct dirent)))
+		error("no dirent for this platform");
+
+	das = _readdir(dir);
+	dom = mkdom(unix, das);
+	p = (void*){dom}0;
+	len = rangelen(das.map()[0]);
+	e = p+len;
+	p = (struct dirent*)p;
+	while(p < e){
+		if(p->d_name != "." && p->d_name != "..")
+			fn(p->d_name);
+		p++;
+	}
+}
+
+@define dirlist(dir) {
+	@local files;
+
+	files=[];
+	foreachfile(dir,@lambda(f) {
+		append(files,getbytes(f,strlen(f)));
+	});
+
+	return files;
+}
+
+@define which(cmd) {
+	@local p,x,l,c;
+
+	if(!length(cmd))
+		return nil;
+
+	if((cmd[0]=='/') || (strstr(cmd,"/")!=nil)) {
+		if(access(cmd,"x"))
+			return cmd;
+		else
+			return nil;
+	}
+
+	p=getenv("PATH");
+	p=split(p,":");
+	l=length(p);
+	for(x=0;x<l;x++) {
+		if(!length(p[x]))
+			continue;
+
+		c=p[x]+"/"+cmd;
+		if(access(c,"x"))
+			return c;
+	}
+	return nil;
+}

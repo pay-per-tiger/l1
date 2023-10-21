@@ -1,0 +1,60 @@
+better continuations:
+
+- faster capture.
+
+- unlimited stack depth
+
+- continuation inspector
+
+
+interactive overhaul:
+
+- repl now implemented in cinquecento.
+
+- nested repls, like chez cafes
+
+- reader has always been problematic.
+  a scheme reader 
+
+- trapping exceptions and warnings
+
+disassembler:
+
+
+
+
+new function: mkstrm
+
+	mkstrm(p,len)
+
+	Mkstrm returns a string backed by the len byte
+	range of memory in the calling process starting
+	at p.
+
+the definition of not is expanded to all values:
+  not(0)   -> 1
+  not(nil) -> 1
+  else     -> 0
+
+symbols beginning with @ can be constructed like other symbols:
+
+	; '@foo;
+	@foo
+
+
+
+compilation:
+
+Makefile defines OS, canonicalized name of OS.
+
+builds based on conf/mk.$(OS)
+
+generally based on conf/mk.unix
+
+it would be easy to extend for per-arch configurations,
+but this hasn't been necessary.
+
+
+records
+- names are cids instead of strings
+- no more toplevel weirdness

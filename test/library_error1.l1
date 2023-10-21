@@ -1,0 +1,14 @@
+
+//hack to keep regression from including absolute paths
+@defstx @onload() {
+	setloadpath(push(loadpath(),"."));
+	printstack = @lambda(args...) {
+		printf("<printstack-placeholder>\n");
+	};
+	return #[];
+}
+@onload();
+
+@add_loadpath(loadpath()[0] + "/../test/libs");
+
+@with_imports(incwe3) {};

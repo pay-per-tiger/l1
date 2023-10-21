@@ -1,0 +1,138 @@
+@define _dw_get_regval (domoras, regno)
+{
+  @local exas;
+  if (isas (domoras))
+    exas = domoras;
+  else
+    exas = domoras.as;
+  switch (regno) {
+  case 0: return  exas.getrax();
+    break;
+  case 1: return  exas.getrdx();
+    break;
+  case 2: return  exas.getrcx();
+    break;
+  case 3: return  exas.getrbx();
+    break;
+  case 4: return  exas.getrsi();
+    break;
+  case 5: return  exas.getrdi();
+    break;
+  case 6: return  exas.getrbp();
+    break;
+  case 7: return  exas.getrsp();
+    break;
+  case 8: return  exas.getr8();
+    break;
+  case 9: return  exas.getr9();
+    break;
+  case 10: return  exas.getr10();
+    break;
+  case 11: return  exas.getr11();
+    break;
+  case 12: return  exas.getr12();
+    break;
+  case 13: return  exas.getr13();
+    break;
+  case 14: return  exas.getr14();
+    break;
+  case 15: return  exas.getr15();
+    break;
+  case 16: return  exas.getrip();
+    break;
+  default:
+    if (isprocedure (regno))
+      return _dw_get_regval (domoras, regno (domoras));
+    printf ("No get_regval function registered for regno %a in as %a\n",
+	    regno, exas);
+    backtrace();
+    break;
+  }
+  return 0;
+}
+
+@define _dw_fpregnum (exdom)
+{
+  return 6;
+}
+
+@define _dw_spregnum (exdom)
+{
+  return 7;
+}
+
+@define _dw_pcregnum (exdom)
+{
+  return 16;
+}
+
+@define dumpregs (exdom)
+{
+  printf ("reg 0 (rax) = 0x%x (%u)\n", exdom.getrax(), exdom.getrax());
+  printf ("reg 1 (rdx) = 0x%x (%u)\n", exdom.getrdx(), exdom.getrdx());
+  printf ("reg 2 (rcx) = 0x%x (%u)\n", exdom.getrcx(), exdom.getrcx());
+  printf ("reg 3 (rbx) = 0x%x (%u)\n", exdom.getrbx(), exdom.getrbx());
+  printf ("reg 4 (rsi) = 0x%x (%u)\n", exdom.getrsi(), exdom.getrsi());
+  printf ("reg 5 (rdi) = 0x%x (%u)\n", exdom.getrdi(), exdom.getrdi());
+  printf ("reg 6 (rbp) = 0x%x (%u)\n", exdom.getrbp(), exdom.getrbp());
+  printf ("reg 7 (rsp) = 0x%x (%u)\n", exdom.getrsp(), exdom.getrsp());
+  printf ("reg 8 = 0x%x (%u)\n", exdom.getr8(), exdom.getr8());
+  printf ("reg 9 = 0x%x (%u)\n", exdom.getr9(), exdom.getr9());
+  printf ("reg 10 = 0x%x (%u)\n", exdom.getr10(),exdom.getr10());
+  printf ("reg 11 = 0x%x (%u)\n", exdom.getr11(),exdom.getr11());
+  printf ("reg 12 = 0x%x (%u)\n", exdom.getr12(),exdom.getr12());
+  printf ("reg 13 = 0x%x (%u)\n", exdom.getr13(),exdom.getr13());
+  printf ("reg 14 = 0x%x (%u)\n", exdom.getr14(),exdom.getr14());
+  printf ("reg 15 = 0x%x (%u)\n", exdom.getr15(),exdom.getr15());
+  printf ("reg 16 = 0x%x (%u)\n", exdom.getrip(),exdom.getrip());
+}
+
+_dw_map_getfun_to_regnum = [
+    "getrax" : 0,
+    "getrdx" : 1,
+    "getrcx" : 2,
+    "getrbx" : 3,
+    "getrsi" : 4,
+    "getrdi" : 5,
+    "getrbp" : 6,
+    "getrsp" : 7,
+    "getr8"  : 8,
+    "getr9"  : 9,
+    "getr10" : 10,
+    "getr11" : 11,
+    "getr12" : 12,
+    "getr13" : 13,
+    "getr14" : 14,
+    "getr15" : 15,
+    "getrip" : 16
+];
+
+_dw_getfun = vector ("getrax", "getrdx", "getrcx", "getrbx", "getrsi",
+		     "getrdi", "getrbp", "getrsp", "getr8", "getr9",
+		     "getr10", "getr11", "getr11", "getr12", "getr13",
+		     "getr14", "getr15", "getrip");
+
+_dw_map_setfun_to_regnum = [
+    "setrax" : 0,
+    "setrdx" : 1,
+    "setrcx" : 2,
+    "setrbx" : 3,
+    "setrsi" : 4,
+    "setrdi" : 5,
+    "setrbp" : 6,
+    "setrsp" : 7,
+    "setr8"  : 8,
+    "setr9"  : 9,
+    "setr10" : 10,
+    "setr11" : 11,
+    "setr12" : 12,
+    "setr13" : 13,
+    "setr14" : 14,
+    "setr15" : 15,
+    "setrip" : 16
+];
+
+_dw_setfun = vector ("setrax", "setrdx", "setrcx", "setrbx", "setrsi",
+		     "setrdi", "setrbp", "setrsp", "setr8", "setr9",
+		     "setr10", "setr11", "setr11", "setr12", "setr13",
+		     "setr14", "setr15", "setrip");

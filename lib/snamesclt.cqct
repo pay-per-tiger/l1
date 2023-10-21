@@ -1,0 +1,2 @@
+@include <sctlns.cqct>
+printf("warning: <snamesclt.cqct> is deprecated; use <sctlns.cqct>\n");

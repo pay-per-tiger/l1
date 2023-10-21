@@ -1,0 +1,27 @@
+@defstx @vids()
+{
+	@local ids;
+
+	@defloc init(id)
+	{
+		#`{ #,id = 0; };
+	}
+
+	@defloc inc(id)
+	{
+		#`{ #,id++; };
+	}
+
+	ids = #[ #id('c), #id('d), #id('e) ];
+
+	#`{
+		{
+			@local #,@ids; 
+			#,@(map(init, ids));
+			#,@(map(inc, ids));
+			printf("%a\n", [ #,@ids ]);
+		}
+	};
+}
+
+@vids();

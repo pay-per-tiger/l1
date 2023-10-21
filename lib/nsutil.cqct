@@ -1,0 +1,774 @@
+
+@global nsutil_defined;
+
+
+if (nsutil_defined == nil)
+{
+@global typenameequal, typeequal, nsdiff, printtype, printns;
+@global types_with_ptrs, nsiter, all_types, nsjoin, mknsoff, mktnresolve;
+@global nstostr;
+
+nsutil_defined = 1;
+
+
+/**
+* checks that the names of types t1 and t2 are equal.
+* param: t1 - the first type to check
+* param: t2 - the second type
+* returns: 1 if the two types have equal names (they would have the same
+*   form when used to declare a C variable), 0 otherwise.
+*/
+@define typenameequal(t1, t2){
+	@local i, ps1, ps2, p1, p2,
+	       tag1, tag2, n1, n2;
+
+	if(isvoid(t1) && isvoid(t2))
+		return 1;
+
+	if(isbase(t1) && isbase(t2))
+		return baseid(t1) == baseid(t2);
+
+	if(isundeftype(t1) && isundeftype(t2))
+		return typenameequal(subtype(t1), subtype(t2));
+
+	if(istypedef(t1) && istypedef(t2)){
+		if(typedefid(t1) != typedefid(t2))
+			return 0;
+		return typenameequal(typedeftype(t1), typedeftype(t2));
+	}
+
+	if(isptr(t1) && isptr(t2))
+		return typenameequal(subtype(t1), subtype(t2));
+
+	if(isarray(t1) && isarray(t2)){
+		n1 = arraynelm(t1);
+		n2 = arraynelm(t2);
+		if(n1 != n2)
+			return 0;
+		return typenameequal(subtype(t1), subtype(t2));
+	}
+
+	if(isfunc(t1) && isfunc(t2)){
+		if(!typenameequal(rettype(t1), rettype(t2)))
+			return 0;
+		ps1 = params(t1);
+		ps2 = params(t2);
+		if(length(ps1) != length(ps2))
+			return 0;
+		for(i = 0; i < length(ps1); i++){
+			p1 = ps1[i];
+			p2 = ps2[i];
+			if(!typenameequal(paramtype(p1), paramtype(p2)))
+				return 0;
+		}
+		return 1;
+	}
+
+	if(isbitfield(t1) && isbitfield(t2)){
+		if(bitfieldpos(t1) != bitfieldpos(t2))
+			return 0;
+		if(bitfieldwidth(t1) != bitfieldwidth(t2))
+			return 0;
+		return typenameequal(bitfieldcontainer(t1),
+				     bitfieldcontainer(t2));
+	}
+
+	if(issu(t1) && issu(t2)){
+		if(isstruct(t1) && !isstruct(t2))
+			return 0;
+		if(isstruct(t2) && !isstruct(t1))
+			return 0;
+		tag1 = cid2str(suetag(t1));
+		tag2 = cid2str(suetag(t2));
+		if(strstr(tag1, "anon_") != nil
+		   && strstr(tag2, "anon_") != nil){
+			return 1;
+		}
+		return tag1 == tag2;
+	}
+
+	if(isenum(t1) && isenum(t2)){
+		tag1 = cid2str(suetag(t1));
+		tag2 = cid2str(suetag(t2));
+		if(strstr(tag1, "anon_") != nil
+		   && strstr(tag2, "anon_") != nil)
+			return 1;
+		return tag1 == tag2;
+	}
+
+	return 0;
+}
+
+
+/**
+* Recursivly check that two types are equal.
+* param: t1 - the first type to check
+* param: t2 - the second type
+* returns: 1 if the two types are equal, 0 otherwise
+*/
+@define typeequal(t1, t2){
+	@local i, j, flds1, flds2, ps1, ps2, p1, p2,
+               f1, f2, c1, c2, tag1, tag2, n1, n2;
+
+	if(isvoid(t1) && isvoid(t2))
+		return 1;
+
+	if(isbase(t1) && isbase(t2))
+		return baseid(t1) == baseid(t2);
+
+	if(isundeftype(t1) && isundeftype(t2))
+		return 1;
+
+	if(istypedef(t1) && istypedef(t2)){
+		if(typedefid(t1) != typedefid(t2))
+			return 0;
+		return typenameequal(typedeftype(t1), typedeftype(t2));
+	}
+
+	if(isptr(t1) && isptr(t2))
+		return typeequal(subtype(t1), subtype(t2));
+
+	if(isarray(t1) && isarray(t2)){
+		n1 = arraynelm(t1);
+		n2 = arraynelm(t2);
+		if(n1 != n2)
+			return 0;
+		return typeequal(subtype(t1), subtype(t2));
+	}
+
+	if(isfunc(t1) && isfunc(t2)){
+		if(!typeequal(rettype(t1), rettype(t2)))
+			return 0;
+		ps1 = params(t1);
+		ps2 = params(t2);
+		if(length(ps1) != length(ps2))
+			return 0;
+		for(i = 0; i < length(ps1); i++){
+			p1 = ps1[i];
+			p2 = ps2[i];
+			if(!typeequal(paramtype(p1), paramtype(p2)))
+				return 0;
+		}
+		return 1;
+	}
+
+	if(isbitfield(t1) && isbitfield(t2)){
+		if(bitfieldpos(t1) != bitfieldpos(t2))
+			return 0;
+		if(bitfieldwidth(t1) != bitfieldwidth(t2))
+			return 0;
+		return typeequal(bitfieldcontainer(t1), bitfieldcontainer(t2));
+	}
+
+	if(issu(t1) && issu(t2)){
+		if(isstruct(t1) && !isstruct(t2))
+			return 0;
+		if(isstruct(t2) && !isstruct(t1))
+			return 0;
+		tag1 = cid2str(suetag(t1));
+		tag2 = cid2str(suetag(t2));
+		if(strstr(tag1, "anon_") != nil
+		   && strstr(tag2, "anon_") != nil){
+			printf("skipping %t %t\n", t1, t2);
+			return 1;
+		}
+		if(susize(t1) != susize(t2))
+			return 0;
+		flds1 = fields(t1);
+		flds2 = fields(t2);
+		if(length(flds1) != length(flds2))
+			return 0;
+		for(i = 0; i < length(flds1); i++){
+			f1 = flds1[i];
+			f2 = flds2[i];
+			if(fieldoff(f1) != fieldoff(f2))
+				return 0;
+			if(fieldid(f1) != fieldid(f2))
+				return 0;
+			if(!typenameequal(fieldtype(f1), fieldtype(f2)))
+				return 0;
+		}
+		return 1;
+	}
+
+	if(isenum(t1) && isenum(t2)){
+		@local cs1, cs2;
+		tag1 = cid2str(suetag(t1));
+		tag2 = cid2str(suetag(t2));
+		if(strstr(tag1, "anon_") != nil
+		   && strstr(tag2, "anon_") != nil)
+			return 1;
+		cs1 = enumconsts(t1);
+		cs2 = enumconsts(t2);
+		if(length(cs1) != length(cs2))
+			return 0;
+		for(i = 0; i < length(cs1); i++){
+			c1 = cs1[i];
+			for(j = 0; j < length(cs2); j++){
+				c2 = cs2[j];
+				if( (c1[0] == c2[0])
+				   && (c1[1] == c2[1]))
+					break;
+			}
+			if(j >= length(cs2))
+				return 0;
+		}
+		return 1;
+	}
+
+	return 0;
+}
+
+/** calls fn(type) for each type in namespace
+* param: ns the namespace to iterate over
+* param: fn the function to call for each member of the ns
+* returns: nil
+*/
+@define nsiter(ns, fn)
+{
+	@local ttable, tlist, numtypes, i;
+
+	ttable = ns.enumtype();
+	tlist = tabenum(ttable);
+
+	numtypes = length(tlist) / 2;
+
+	for (i = 0; i < numtypes; i++) {
+		fn(tlist[i + numtypes]);
+	}
+}
+
+
+/**
+* Calculates the differences between the two namespaces
+* (ignoring annonomous types)
+* param: ns1 - namespace
+* param: ns2 - namespace
+* returns: [tab1, tab2, tab3] where tab1 contains types in ns1 that are not
+*    in ns2, and tab2 contains types in ns2 that are not in ns1, and tab3
+*    maps types in either ns to a type with the same name in the other ns
+*    that is not the same type.
+*/
+@define nsdiff(ns1, ns2){
+	@local u1, u2, diff, nsdiff0, name1, name2;
+
+	name1 = nameof(ns1);
+	name2 = nameof(ns2);
+	if(name1 == nil)
+		name1 = "ns1";
+	if(name2 == nil)
+		name2 = "ns2";
+
+	@define nsdiff0(ns1, ns2){
+		@local t2, undef;
+
+		undef = mktab();
+		foreach(@lambda(k, t1){
+				/* skip anonymous types */
+				if((issu(t1) || isenum(t1))
+				   && strstr(cid2str(suetag(t1)), "anon_") != nil)
+					return;
+				t2 = ns2.looktype(t1);
+				if(t2 == nil)
+					tabinsert(undef, t1, t1);
+				else if(!typeequal(t1, t2))
+					tabinsert(diff, t1, t1);
+			}, ns1.enumtype());
+		return undef;
+	}
+
+
+	diff = mktab();
+	u2 = nsdiff0(ns1, ns2);
+	u1 = nsdiff0(ns2, ns1);
+
+	if(length(u2) > 0){
+		printf("in %s but not %s:\n", name1, name2);
+		foreach(@lambda(t,ignore){
+				printf("\t%t\n", t);
+			}, u2);
+	}
+	if(length(u1) > 0){
+		printf("in %s but not %s:\n", name2, name1);
+		foreach(@lambda(t,ignore){
+				printf("\t%t\n", t);
+			}, u1);
+	}
+	if (length(diff)){
+		printf("differences between %s and %s:\n", name1, name2);
+		foreach(@lambda(t,ignore){
+			printf("\t%t\n",t);
+		}, diff);
+	}
+	return [u2,u1,diff];
+}
+
+/**
+* Print the type t in a format parsable by cqct.
+* param: t - a type
+* returns: nil
+*/
+@define printtype(t){
+	@local i, fld, flds, sz, off, ft,id;
+
+	if(issu(t)){
+		printf("%s %s {\n", suekind(t), suetag(t));
+		flds = fields(t);
+		for(i = 0; i < length(flds); i++){
+			fld = flds[i];
+			off = fieldoff(fld);
+			ft = fieldtype(fld);
+			id = fieldid(fld);
+			if(off == nil){
+				printf("\t");
+				printf("\t%t;\n", fld);
+			}else if(isbitfield(ft)){
+				printf("\t@@(8*0x%x+0x%x)",
+				       off, bitfieldpos(ft));
+				printf("\t%t %s : %d;\n",
+				       bitfieldcontainer(ft), id,
+				       bitfieldwidth(ft));
+			}else{
+				printf("\t@0x%x", off);
+				printf("\t%t;\n", fld);
+			}
+		}
+		sz = susize(t);
+		if(sz != nil)
+			printf("\t@0x%x;\n", sz);
+		printf("}");
+	}else if(istypedef(t)){
+		@local st;
+		st = typedeftype(t);
+		if(isfunc(st)){
+			@local prms;
+			prms = map(paramtype,params(st));
+			prms = map(@lambda(p) { sprintfa("%t", p); }, prms);
+			prms = join(prms, ",");
+			printf("typedef %t %s(%s)", rettype(st), typedefid(t),
+			       prms);
+		}else if (isarray(st)){
+			@local sp;
+			sp = split(sprintfa("%t", st));
+			listins(sp, length(sp)-1, cid2str(typedefid(t)));
+			printf("typedef %s", join(sp," "));
+		}else{
+			printf("typedef %t %s", typedeftype(t), typedefid(t));
+		}
+	}else if(isenum(t)){
+		@local ens,en;
+		printf("%s %s {\n", suekind(t), suetag(t));
+		ens = enumconsts(t);
+		for(i = 0; i < length(ens); i++){
+			en = ens[i];
+			printf("\t%s = %d,\n", en[0], en[1]);
+		}
+		printf("}");
+	}else
+		printf("%t", t);
+}
+
+/**
+* prints a namespace in a format includable in an @names directive.
+* param: ns - a namespace
+* returns: nil
+*/
+@define printns(ns){
+	@local i, vec, unread;
+	vec = tabvals(ns.enumtype());
+	sort(vec,@lambda(x,y) { strcmp(sprintfa("%t",x),sprintfa("%t",y)); });
+	for(i = 0; i < length(vec); i++) {
+		if (isbase(vec[i]) || isvoid(vec[i])) continue;
+		if (isptr(vec[i]) &&
+		    (isbase(subtype(vec[i])) || isvoid(subtype(vec[i]))))
+		{
+			continue;
+		}
+		printtype(vec[i]);
+		printf(";\n");
+	}
+	vec = tabvals(ns.enumsym());
+	sort(vec,@lambda(x,y){
+		@local r;
+		r = cvalcmp(symoff(x),symoff(y));
+		if (r != 0) return r;
+	        return strcmp(cid2str(symid(x)),cid2str(symid(y)));
+	});
+	unread = @lambda(v) {
+		// certainly still insufficient
+		@local r;
+		if(iscid(v))
+			r = sprintfa("'%a", v);
+		else
+			r = sprintfa("%a", v);
+		return r;
+	};
+	for(i = 0; i < length(vec); i++){
+		@local sym, off, type, attrs;
+		sym = vec[i];
+		type = symtype(sym);
+		if(isenumconst(type))
+			continue;
+		off = symoff(sym);
+		attrs = symattr(sym);
+		if(off != nil){
+			if (length(attrs) == 1)
+				printf("@0x%x", off);
+			else {
+				@local first;
+				first = 1;
+				attrs = map(@lambda(k, v) {
+					cons(unread(k), unread(v));
+				}, attrs);
+				sort(attrs, @lambda(x,y) {
+					strcmp(sprintfa("%a", car(x)),
+					       sprintfa("%a", car(y)));
+				});
+				foreach(@lambda(x) {
+					@local k, v;
+					k = car(x);
+					v = cdr(x);
+					if (first) {
+						printf("@[");
+						first = 0;
+					} else printf(",\n  ");
+					printf("%s:%s",k,v);
+				},attrs);
+				printf("]");
+			}
+		}
+		printf("\t%t;\n", sym);
+	}
+}
+
+@define nstostr(ns) {
+	@local orig_printf, accum;
+	accum = [];
+	dynamicwind(@lambda() {
+		orig_printf = printf;
+		printf = @lambda(args...) {
+			append(accum,apply(sprintfa,args));
+		};
+	}, @lambda() { printns(ns); },
+	@lambda() {
+		printf = orig_printf;
+	});
+	return join(accum);
+}
+
+@define all_types(ns)
+{
+        nsiter(ns, @lambda(x) { printf("%t\n", x); });
+}
+
+//names in ns2 override names and symbols in ns1.
+@define nsjoin(ns1,ns2) {
+	@local _ls, _es, _la, _lt, _et;
+	@define _ls(this,id) {
+		@local ret;
+		ret = ns2.looksym(id);
+		if (ret == nil) return ns1.looksym(id);
+		return ret;
+	}
+	@define _es(this) {
+		@local tab;
+		tab = mktab();
+		foreach(@lambda(k,v) {
+			tab[k] = v;
+		},ns1.enumsym());
+		foreach(@lambda(k,v) {
+			tab[k] = v;
+		},ns2.enumsym());
+		return tab;
+	}
+	@define _la(this,addr) {
+		@local r1,r2;
+		r1 = ns1.lookaddr(addr);
+		r2 = ns2.lookaddr(addr);
+		if (r1 == nil) return r2;
+		if (r2 == nil) return r1;
+		if ({litdom}(uintptr)symoff(r1) >
+ 		    {litdom}(uintptr)symoff(r2)) return r1;
+		return r2;
+	}
+	@define _lt(this,tn) {
+		@local res;
+		res = ns2.looktype(tn);
+		if (res == nil) return ns1.looktype(tn);
+		return res;
+	}
+	@define _et(this) {
+		@local tab;
+		tab = mktab();
+		foreach(@lambda(k,v) {
+			tab[k] = v;
+		},ns1.enumtype());
+		foreach(@lambda(k,v) {
+			tab[k] = v;
+		},ns2.enumtype());
+		return tab;
+	}
+	return mkns([
+		'looksym : _ls,
+                'enumsym : _es,
+                'lookaddr : _la,
+                'looktype : _lt,
+                'enumtype : _et]);
+}
+
+
+/* FIXME: clean up the casting ... carefully. */
+@define mknsoff(ns,off) {
+	@local  _ls, _es, _ms, _la, _la2, inc_sym, sym_cache, _addsym;
+
+	sym_cache = mktab();
+	off = (ns`uintptr)off;
+
+	@define inc_sym(sym) {
+		@local ret;
+		@local attr, new_attr;
+		if(isenumconst(symtype(sym))) {
+			sym_cache[symid(sym)] = sym;
+			return sym;
+		}
+		attr = symattr(sym);
+		new_attr = mktab();
+		foreach(@lambda(k,v) {
+			if (k == 'offset) {
+				new_attr[k] = (ns`uintptr)((ns`uintptr)v+off);
+			} else {
+				new_attr[k] = v;
+			}
+		},attr);
+		sym_cache[symid(sym)] = ret =
+			mksym(symtype(sym),symid(sym),new_attr);
+		return ret;
+	}
+	//looksym
+	@define _ls(this,id) {
+		@local sym;
+		if (sym_cache[id] != nil) return sym_cache[id];
+		sym = ns.looksym(id);
+		if (sym == nil) return nil;
+		return inc_sym(sym);
+	}
+	//enumsym
+	@define _es(this) {
+		@local tab;
+		tab = ns.enumsym();
+		foreach(@lambda(k,sym) {
+			if (sym_cache[k] == nil) inc_sym(sym);
+		}, tab);
+		return sym_cache;
+	}
+	//matchsyms
+	@define _ms(this, regexp) {
+		@local tab, inctab;
+		tab = ns.matchsyms(regexp);
+		inctab = [:];
+		foreach(@lambda(k,sym) {
+			if (sym_cache[k] == nil) inc_sym(sym);
+			inctab[k] = sym_cache[k];
+		}, tab);
+		return inctab;
+	}
+	//lookaddr
+	@define _la(this,addr) {
+		@local sym1, sym;
+		addr = (ns`uintptr)addr;
+		sym1 = nil;
+		foreach(@lambda(k,v) {
+			if (symoff(v) <= addr &&
+				(sym1 == nil || symoff(sym1)<symoff(v)))
+				sym1 = v;
+		}, sym_cache);
+		//if we happen to find exactly the right address, we
+		//don't have to ask the other ns.
+		if (sym1 != nil && symoff(sym1) == addr) return sym1;
+		sym = ns.lookaddr((ns`uintptr)((ns`uintptr)addr-off));
+		//only if we don't already have the symbol cached is
+		//it necessary to check if the lookaddr symbol is best.
+		if (sym != nil) {
+			if (sym_cache[symid(sym)] == nil) {
+				sym = inc_sym(sym);
+				if (sym1 == nil) return sym;
+				//sym1 != nil...
+				if (symoff(sym)>symoff(sym1)) return sym;
+				else return sym1;
+			} //else return sym1 //sym was already in sym_cache
+					     //and was therefore considered
+					     //when generating sym1.
+		} //else return sym1
+		return sym1;
+	}
+	//lookaddrs
+	@define _la2(this, addr) {
+		@local tab, inctab;
+		tab = ns.lookaddrs((ns`uintptr)((ns`uintptr)addr-off));
+		inctab = [:];
+		foreach(@lambda(k,sym) {
+			if (sym_cache[k] == nil) inc_sym(sym);
+			inctab[k] = sym_cache[k];
+		}, tab);
+		return inctab;
+	}
+
+	@defloc uw1(this, pc)
+	{
+		return ns.unwind1(pc-off);
+	}
+
+	@defloc ls(this, addr)
+	{
+		addr -= off;
+		return ns.looksrc(addr);
+	}
+
+	@defloc lpc(this, file, line)
+	{
+		@local pc;
+		pc = ns.lookpc(file, line);
+		if(pc != nil)
+			pc += off;
+		return pc;
+	}
+
+	@defloc el(this, pc)
+	{
+		return ns.enumloc(pc-off);
+	}
+
+	@defloc nsinfo(this)
+	{
+		return ns.nsinfo();
+	}
+
+	@defloc rebind(this, fd)
+	{
+		return ns.rebind(fd);
+	}
+
+	@define _addsym(this,id,sym) {
+		sym_cache[id] = sym;
+	}
+
+	return mkns([
+		'looksym : _ls,
+		'enumsym : _es,
+		'matchsyms : _ms,
+		'lookaddr : _la,
+		'lookaddrs : _la2,
+		'looktype : @lambda(this,t) { return ns.looktype(t); },
+		'enumtype : @lambda(this) { return ns.enumtype(); },
+		'unwind1  : uw1,
+		'enumloc  : el,
+		'looksrc  : ls,
+		'lookpc   : lpc,
+		'nsinfo   : nsinfo,
+		'rebind   : rebind,
+		'addsym : _addsym,
+		'offset : @lambda(this) { return off; }
+	]);
+
+}
+
+@define mktnresolve(cache, undef, lt)
+{
+	@local resolve, undefined, ptr, ptrrep;
+	@local typepos;
+
+	typepos = 0;   // FIXME: should be opaque
+
+	ptr = lt(mkctype_base(cqct`Vptr));
+	if(ptr == nil)
+		error("no pointer type");
+	ptrrep = baserep(ptr);
+
+	@define undefined(tn)
+	{
+		@local td;
+		td = mkctype_undef(tn);
+		cache[typename(tn)] = td;
+		undef[typename(tn)] = td;
+		return td;
+	}
+
+	@define resolve(tn)
+	{
+		@local td, i, m, s, v, st;
+
+		td = cache[typename(tn)];
+		if(td != nil)
+			return td;
+
+		if(isbase(tn)){
+			td = lt(tn);
+			if(td == nil)
+				error("name space does not define %t", tn);
+			cache[typename(tn)] = td;
+			return td;
+		}else if(issu(tn)){
+			td = lt(tn);
+			if(td == nil)
+				return undefined(tn);
+			cache[typename(tn)] = td; // terminate cycles
+			s = fields(td);
+			m = length(s);
+			for(i = 0; i < m; i++){
+				v = s[i];
+				v[typepos] = resolve(v[typepos]);
+			}
+			return td;
+		}else if(isenum(tn)){
+			td = lt(tn);
+			if(td == nil)
+				return undefined(tn);
+			cache[typename(tn)] = td;
+			return td;
+		}else if(istypedef(tn)){
+			td = lt(tn);
+			if(td == nil)
+				return undefined(tn);
+			cache[typename(tn)] = td; // terminate cycles
+			settypedeftype(td, resolve(typedeftype(td)));
+			return td;
+		}else if(isptr(tn)){
+			td = mkctype_ptr(resolve(subtype(tn)), ptrrep);
+			/* FIXME: cannot cache into cache because
+			   we return that as enumtype.  but we could
+		           create a separate ptrcache. */
+			// cache[typename(tn)] = td; // why not?
+			return td;
+		}else if(isenumconst(tn)){
+			td = mkctype_const(resolve(subtype(tn)));
+			return td;
+		}else if(isfunc(tn)){
+			s = params(tn);
+			m = length(s);
+			for(i = 0; i < m; i++){
+				v = s[i];
+				v[typepos] = resolve(v[typepos]);
+			}
+			td = mkctype_fn(resolve(rettype(tn)), s);
+			return td;
+		}else if(isarray(tn)){
+			return mkctype_array(resolve(subtype(tn)),
+					     arraynelm(tn));
+		}else if(isvoid(tn)){
+			cache[typename(tn)] = mkctype_void();
+		}else if(isbitfield(tn)){
+			st = resolve(bitfieldcontainer(tn));
+			return mkctype_bitfield(st,
+						bitfieldwidth(tn),
+						bitfieldpos(tn));
+		}else if(isundeftype(tn)){
+			cache[typename(tn)] = tn;
+		}else
+			error("type resolution on unexpected type: %t", tn);
+	}
+
+	return resolve;
+}
+
+
+}

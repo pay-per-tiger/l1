@@ -1,0 +1,26 @@
+len = @lambda(l){
+     @local len;
+     for(len = 0; !isnil(l); l = cdr(l))
+	  len++;
+     return len;
+};
+
+iota = @lambda(n){
+     @local l;
+     l = nil;
+     while(n-- > 0)
+	  l = cons(n, l);
+     return l;
+};
+
+printlist = @lambda(l){
+     while(!isnil(l)){
+	  print(car(l));
+	  l = cdr(l);
+     }
+};
+
+x = iota(10);
+printlist(x);
+print(len(x));
+

@@ -1,0 +1,218 @@
+@include <ppstx.cqct>
+
+@global debugexpand, validateexpand;
+
+{
+@local symn;
+
+	symn = 0;
+
+	@global gensym;
+	@define gensym()
+	{
+		return mkstxid(mkcid(sprintfa("sym%d", symn++)));
+	}
+}
+
+@global stxtab;
+stxtab = mktab();
+
+@global expand;
+@define expand(e)
+{
+	@defloc install(id, args, body, expander)
+	{
+		@local fn, l, pat, ad;
+
+		if(args == nil){
+			args = Znull();
+			ad = cons('fixed, 0);
+		}else if(Zisvarg(args)){
+			/* remove ellipsis */
+			args = Zreverse(Zcdr(Zreverse(args)));
+			ad = cons('varg, Zlength(args)-1);
+		}else
+			ad = cons('fixed, Zlength(args));
+		if(body)
+			l = Zcons(body, args);
+		else
+			l = args;
+		fn = compile(#lambda(l, expander));
+		fn = fn();
+		pat = [ ad, body ? 1 : nil, fn ];
+		stxtab[id] = pat;
+	}
+
+	@defloc dispatch(id, args, body)
+	{
+		@local pat, b, l, ad, i, m, r;
+		pat = stxtab[id];
+		if(pat == nil)
+			error("cannot expand @%a form", stxid(id));
+		b = body ? 1 : nil;
+		if(pat[1] != b)
+			error("syntax error for @%a form", stxid(id));
+		ad = pat[0];
+		if(car(ad) == 'fixed){
+			if(Zlength(args) != cdr(ad))
+				error("syntax error for @%a form: "
+				      "wrong number of arguments",
+				      stxid(id));
+			l = Ztolist(args);
+		}else{
+			m = cdr(ad);
+			if(Zlength(args) < m)
+				error("syntax error for @%a form: "
+				      "too few arguments", stxid(id));
+			l = [];
+			for(i = 0; i < m; i++){
+				append(l, Zcar(args));
+				args = Zcdr(args);
+			}
+			append(l, args);
+		}
+		if(body)
+			l = push(l, body);
+		r = apply(pat[2], l);
+		if (!isstx(r)) {
+		    error("Macro @%a failed to produce valid syntax",stxid(id));
+		}
+		return r;
+	}
+
+	@defloc unquasi(e)
+	{
+		if(e == nil)
+			return e;
+		switch(stxkind(e)){
+		case 'stxunquote:
+			error("misplaced unquote");
+		case 'stxsplice:
+			error("misplaced splice");
+		case 'stxquasi:
+			return quasi(e[0]);
+		case 'stxquote:
+		case 'id:
+		case 'val:
+			return e;
+		default:
+			return mkstx(stxkind(e),
+				     unquasi(e[0]),
+				     unquasi(e[1]),
+				     unquasi(e[2]),
+				     unquasi(e[3]),
+				     stxsrc(e));
+		}
+	}
+
+	@defloc quasi(e)
+	{
+		@local p, se;
+		if(e == nil)
+			return e;
+		switch(stxkind(e)){
+		case 'stxunquote:
+			return #call(#id('stxliftval),
+				     Zlist(unquasi(e[0])),
+				     stxsrc(e));
+		case 'stxsplice:
+			error("unimplemented");
+		case 'id:
+			return #call(#id('mkstxid),
+				     Zlist(mkstxval(stxid(e))),
+				     stxsrc(e));
+		case 'val:
+			return #call(#id('mkstxval),
+				     Zlist(mkstxval(stxval(e))),
+				     stxsrc(e));
+		case 'elist:
+			p = Zreverse(e);
+			se = Znull();
+			se = Zcons(#g(#id(mkcid("$t")),
+				      #call(#id('mkstx), Zlist(mkstxval('null)))),
+				   se);
+			while(stxkind(p) == 'elist){
+				if(stxkind(p[0]) == 'stxsplice)
+					se = Zcons(#g(#id(mkcid("$t")),
+						      #call(#id('stxsplice),
+							    Zlist(unquasi(p[0][0]),
+								  #id(mkcid("$t"))))),
+						   se);
+				else
+
+					se = Zcons(#g(#id(mkcid("$t")),
+						      #call(#id('mkstx),
+							    Zlist(mkstxval('elist),
+								  quasi(Zcar(p)),
+								  #id(mkcid("$t"))))),
+						   se);
+				p = Zcdr(p);
+			}
+			se = Zcons(#id(mkcid("$t")), se);
+			se = Zreverse(se);
+			return #block(#[ #id(mkcid("$t")) ], se);
+		default:
+
+			return #call(#id('mkstx),
+					Zlist(mkstxval(stxkind(e)),
+					   e[0] ? quasi(e[0]) : Znil(),
+					   e[1] ? quasi(e[1]) : Znil(),
+					   e[2] ? quasi(e[2]) : Znil(),
+					   e[3] ? quasi(e[3]) : Znil(),
+					   mkstxval(stxsrc(e))),
+					stxsrc(e));
+		}
+	}
+
+	@defloc exp(e)
+	{
+		@local p, l;
+		if(e == nil)
+			return e;
+		switch(stxkind(e)){
+		case 'stxunquote:
+			error("misplaced unquote");
+		case 'stxsplice:
+			error("misplaced splice");
+		case 'stxquasi:
+			return exp(quasi(e[0]));
+		case 'stxquote:
+		case 'val:
+		case 'id:
+			return e;
+		case 'defstx:
+			install(stxref(e, 0),
+				stxref(e, 1),
+				stxref(e, 2),
+				stxref(e, 3));
+			return #nil();
+		case 'mcall:
+			e = dispatch(stxref(e, 0),
+				     stxref(e, 1),
+				     stxref(e, 2));
+			if(debugexpand)
+				ppstx(e);
+			return exp(e);
+		case 'elist:
+			p = e;
+			l = Znull();
+			while(stxkind(p) == 'elist){
+				l = Zcons(exp(Zcar(p)), l);
+				p = Zcdr(p);
+			}
+			return Zreverse(l);
+		default:
+			return mkstx(stxkind(e),
+				     exp(stxref(e, 0)),
+				     exp(stxref(e, 1)),
+				     exp(stxref(e, 2)),
+				     exp(stxref(e, 3)),
+				     stxsrc(e));
+		}
+	}
+
+	e = exp(e);
+	if(validateexpand)
+		validateexpand(e);
+	return e;
+}

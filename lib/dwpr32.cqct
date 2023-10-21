@@ -1,0 +1,93 @@
+@define _dw_get_regval (domoras, regno)
+{
+  @local exas;
+  if (isas (domoras))
+    exas = domoras;
+  else
+    exas = domoras.as;
+  switch (regno) {
+  case 0: return  exas.geteax();
+    break;
+  case 1: return  exas.getecx();
+    break;
+  case 2: return  exas.getedx();
+    break;
+  case 3: return  exas.getebx();
+    break;
+  case 4: return  exas.getesp();
+    break;
+  case 5: return  exas.getebp();
+    break;
+  case 6: return  exas.getesi();
+    break;
+  case 7: return  exas.getedi();
+    break;
+  case 8: return  exas.geteip();
+    break;
+  default:
+    if (isprocedure (regno))
+      return _dw_get_regval (domoras, regno (domoras));
+    printf ("No get_regval function registered for regno %a in as %a\n",
+	    regno, exas);
+    break;
+  }
+  return 0;
+}
+
+@define _dw_fpregnum (exdom)
+{
+  return 5;
+}
+
+@define _dw_spregnum (exdom)
+{
+  return 4;
+}
+
+@define _dw_pcregnum (exdom)
+{
+  return 8;
+}
+
+@define dumpregs (exdom)
+{
+  printf ("reg 0 = 0x%x (%u)\n", exdom.geteax(), exdom.geteax());
+  printf ("reg 1 = 0x%x (%u)\n", exdom.getecx(), exdom.getecx());
+  printf ("reg 2 = 0x%x (%u)\n", exdom.getedx(), exdom.getedx());
+  printf ("reg 3 = 0x%x (%u)\n", exdom.getebx(), exdom.getebx());
+  printf ("reg 4 = 0x%x (%u)\n", exdom.getesp(), exdom.getesp());
+  printf ("reg 5 = 0x%x (%u)\n", exdom.getebp(), exdom.getebp());
+  printf ("reg 6 = 0x%x (%u)\n", exdom.getesi(), exdom.getesi());
+  printf ("reg 7 = 0x%x (%u)\n", exdom.getedi(), exdom.getedi());
+  printf ("reg 8 = 0x%x (%u)\n", exdom.geteip(), exdom.geteip());
+}
+
+_dw_map_getfun_to_regnum = [
+    "geteax" : 0,
+    "getecx" : 1,
+    "getedx" : 2,
+    "getebx" : 3,
+    "getesp" : 4,
+    "getebp" : 5,
+    "getesi" : 6,
+    "getedi" : 7,
+    "geteip" : 8
+];
+
+_dw_getfun = vector ("geteax", "getecx", "getedx", "getebx", "getesp",
+		     "getebp", "getesi", "getedi", "geteip");
+
+_dw_map_setfun_to_regnum = [
+    "seteax" : 0,
+    "setecx" : 1,
+    "setedx" : 2,
+    "setebx" : 3,
+    "setesp" : 4,
+    "setebp" : 5,
+    "setesi" : 6,
+    "setedi" : 7,
+    "seteip" : 8
+];
+
+_dw_setfun = vector ("seteax", "setecx", "setedx", "setebx", "setesp",
+		     "setebp", "setesi", "setedi", "seteip");

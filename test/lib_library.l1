@@ -1,0 +1,92 @@
+
+@add_loadpath(loadpath()[0] + "/../test/libs");
+
+arglib2 = @import_object(lib1);
+arglib2.printargs();
+
+@with_imports ( lib3 ) {
+    f1();
+    f2();
+}
+
+@with_imports ( (f, lib3.f1) ) {
+    f();
+}
+
+@with_imports ( (l, lib3) ) {
+    l.f1();
+    l.f2();
+}
+
+@with_imports ( (l, lib2.f3), (m, lib2.f4), (n, lib2.f4) ) {
+    l();
+    m();
+    n();
+}
+
+@with_imports ( (f1, lib3.f2), lib2 ) { 
+  @defloc f4() { printf("Running f4 from main!\n"); } 
+  printf("In main\n"); 
+  f1(); 
+  f3(); 
+  f4(); 
+  printf("constant c1's value: %a\n",c1); 
+}
+
+@with_imports ( lib3, lib2 ) { 
+  1+1; 
+}
+
+@library(test) {
+  @import( lib3 );
+  @export( func );
+  @define func() {
+    f2();
+  }
+  printf("test loaded\n");
+};
+
+@with_imports( test ) {
+  func();
+}
+
+@with_imports( test ) {
+  func();
+}
+
+@with_imports( subdir/sublib, (f2, subdir/sublib.fn1) ) {
+  fn1();
+  f2();
+}
+
+@with_imports( test ) {
+  func();
+}
+
+@with_imports( subdir/subdir2/sublib, (f2, subdir/subdir2/sublib.fn2) ) {
+  fn2();
+  f2();
+}
+
+@with_imports ( (meme, subdir/sublib) )
+{
+  printf("with an object now\n");
+  meme.fn1();
+  meme.fn1();
+  meme.fn1000();
+  meme.fn1();
+  applyk(@lambda() { meme.fn5(); },
+         @lambda(ret) { printf("success\n"); },
+         @lambda(m) { printf("expected error found: %s\n", m); },
+         []);
+}
+
+printf("Testing lone object import\n");
+sublib = @import_object( subdir/sublib );
+sublib.fn1();
+
+arglib = @import_object(lib1);
+arglib.printargs();
+
+@with_imports(test) {}
+

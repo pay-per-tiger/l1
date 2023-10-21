@@ -1,0 +1,35 @@
+@global linuxns_linux_x86;
+linuxns_linux_x86 = @names c32le {
+	typedef
+	enum Syscall {
+	} Syscall;
+
+	typedef
+	struct Ctx {
+		@0;
+	} Ctx;
+};
+
+@global unix_linux_x86;
+unix_linux_x86 = @names c32le {
+
+	@include <linux-x86-enum.names>
+	@include <linux-unix.names>
+
+	struct stat {
+		@0x10 int32 st_mode;
+		@0x2c uint64 st_size;
+		@0x60;
+	};
+
+	typedef long __kernel_long_t;
+	typedef __kernel_long_t __kernel_time_t;
+	typedef __kernel_long_t __kernel_suseconds_t;
+
+	struct timeval {
+		@0x00 __kernel_time_t		tv_sec;	/* seconds */
+		@0x04 __kernel_suseconds_t	tv_usec;/* microseconds */
+		@0x08;
+	};
+};
+

@@ -1,0 +1,4 @@
+warning: name space references undefined type:
+	foo
+error: attempt to write object of undefined type: foo
+	#0                   entry	(bitfield4.l1:84)

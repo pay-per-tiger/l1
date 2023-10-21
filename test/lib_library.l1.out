@@ -1,0 +1,45 @@
+in lib1
+in lib3
+Running f1 from lib3
+Running f2 from lib3
+finished with lib3
+Running f1 from lib3
+Running f1 from lib3
+Running f2 from lib3
+Running f1 from lib3
+Running f1 from lib3
+Running f1 from lib3
+Running f2 from lib3
+in lib2
+Running f1 from lib3
+Running f2 from lib3
+finished loading lib2
+Running f3 from lib2
+Running f4 from lib2
+Running f4 from lib2
+In main
+Running f1 from lib3
+Running f2 from lib3
+Running f3 from lib2
+Running f4 from main!
+constant c1's value: 1
+test loaded
+Running f1 from lib3
+Running f2 from lib3
+Running f1 from lib3
+Running f2 from lib3
+Running sublib fn1
+Running sublib fn1
+Running f1 from lib3
+Running f2 from lib3
+Running subdir/subdir2/sublib fn2
+Running subdir/subdir2/sublib fn2
+with an object now
+Running sublib fn1
+Running sublib fn1
+Running sublib fn1000
+Running sublib fn1
+expected error found: attempt to call non-procedure
+Testing lone object import
+Running sublib fn1
+in lib1

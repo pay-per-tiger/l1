@@ -1,0 +1,269 @@
+@include <fs.cqct>
+
+packns = @names c32be {
+	struct pack_header {
+		@0x0	uint32 hdr_signature;
+		@0x4	uint32 hdr_version;
+		@0x8	uint32 hdr_entries;
+		@0xc;
+	};
+
+	enum object_type {
+		OBJ_BAD = -1,
+		OBJ_NONE = 0,
+		OBJ_COMMIT = 1,
+		OBJ_TREE = 2,
+		OBJ_BLOB = 3,
+		OBJ_TAG = 4,
+		/* 5 for future expansion */
+		OBJ_OFS_DELTA = 6,
+		OBJ_REF_DELTA = 7,
+		OBJ_ANY,
+		OBJ_MAX,
+	};
+
+	typedef char sha1[20];
+};
+
+gittypename = [ "", "commit", "tree", "blob", "tag", "",
+		"ofsdelta", "refsdelta" ];
+
+@rec(gitobj, offset, bytes, sha1, type);
+
+@define mkstrdom(str)
+{
+	@local dom;
+	dom = mkdom(c32le, mksas(str));
+	return (unsigned char*){dom}0;
+}
+
+@define decodesha(md)
+{
+	@local i, x, rv;
+	x = "0123456780abcdef";
+	rv = mkstr(2*20);
+	for(i = 0; i < 20; i++){
+		rv[i*2] = x[md[i]>>4];
+		rv[i*2+1] = x[md[i]&0xf];
+	}
+	return rv;
+}
+
+@define patchdelta(src, delta)
+{
+	@local data, cmd, size, out, i, cp_off, src_size, cp_size;
+	@local src_buf, dst_buf, dst_size, top;
+
+	src_buf = mkstrdom(src);
+	src_size = strlen(src);
+	data = mkstrdom(delta);
+	top = data+strlen(delta);
+
+//	printf("\npatching delta (%d byte src, %d byte delta)\n",
+//	       strlen(src), strlen(delta));
+	/* get size of original source */
+	size = 0;
+	i = 0;
+	do {
+		cmd = *data++;
+		size |= (cmd&~0x80)<<i;
+		i += 7;
+	} while((cmd&0x80) && data < top); /* bug in origin in delta.h? */
+	if(size != src_size)
+		error("original size mismatch");
+
+	/* get size of result */
+	size = 0;
+	i = 0;
+	do {
+		cmd = *data++;
+		size |= (cmd&~0x80)<<i;
+		i += 7;
+	} while((cmd&0x80) && data < top); /* bug in origin in delta.h? */
+	dst_size = size;
+	dst_buf = mkstrdom(mkstr(dst_size));
+
+	out = dst_buf;
+
+	/* snarfed nearly verbatim from patch-delta.c */
+	while (data < top) {
+		cmd = *data++;
+		if (cmd & 0x80) {
+			cp_off = 0;
+			cp_size = 0;
+			if (cmd & 0x01) cp_off = *data++;
+			if (cmd & 0x02) cp_off |= (*data++ << 8);
+			if (cmd & 0x04) cp_off |= (*data++ << 16);
+			if (cmd & 0x08) cp_off |= (*data++ << 24);
+			if (cmd & 0x10) cp_size = *data++;
+			if (cmd & 0x20) cp_size |= (*data++ << 8);
+			if (cmd & 0x40) cp_size |= (*data++ << 16);
+			if (cp_size == 0) cp_size = 0x10000;
+			if (cp_off + cp_size < cp_size ||
+			    cp_off + cp_size > src_size ||
+			    cp_size > size)
+				break;
+			memcpy(out, (char *) src_buf + cp_off, cp_size);
+			out += cp_size;
+			size -= cp_size;
+		} else if (cmd) {
+			if (cmd > size)
+				break;
+			memcpy(out, data, cmd);
+			out += cmd;
+			data += cmd;
+			size -= cmd;
+		} else {
+			/*
+			 * cmd == 0 is reserved for future encoding
+			 * extensions. In the mean time we must fail when
+			 * encountering them (might be data corruption).
+			 */
+			error("unexpected delta opcode 0");
+		}
+	}
+
+	return getbytes(dst_buf, dst_size);
+}
+
+@define dumppack(pack)
+{
+	@local p, q, i, c, b, type, size, zsize, infl, obj, off, ref, roff;
+	@local sha1tab, offtab, deltaq, s1, go, dep, shift;
+
+	p = (struct pack`pack_header*){pack}0;
+	q = (char*)&p->hdr_signature;
+	printf("signature: ");
+	for(i = 0; i < 4; i++)
+		printf("%c", q[i]);
+	printf("\n");
+	printf("version: %d\n", (char*)p->hdr_version);
+	printf("entries: %d\n", (char*)p->hdr_entries);
+
+	sha1tab = mktab();
+	offtab = mktab();
+	deltaq = [];
+
+	q = (unsigned char*)(p+1);
+	for(i = 0; i < p->hdr_entries; i++){
+		off = q;
+		c = *q++;
+		type = (c>>4)&7;
+		size = (c&15);
+		shift = 4;
+		while(c&0x80){
+//			printf("c = %x, size=%d, shift=%d\n", c, size, shift);
+			c = *q++;
+			size += (c&0x7f)<<shift;
+			shift += 7;
+		}
+		ref = nil;
+		roff = nil;
+		if(type == pack`OBJ_REF_DELTA){
+			ref = getbytes(q, 20);
+			q += 20; /* skip base sha1 */
+		}else if(type == pack`OBJ_OFS_DELTA){
+			/* consume base offset.
+			   this is not documented in the git pack format
+			   documentation. */
+			b = *q++;
+			roff = b&127;
+			while(b&128){
+				roff++;
+				b = *q++;
+				roff = (roff<<7)+(b&127);
+			}
+		}
+		infl = inflatezlib(q);
+		obj = infl[0];
+		if(strlen(obj) != size)
+			error("deflated object is %d bytes, expected %d",
+			      size, strlen(obj));
+		zsize = infl[1]+(q-off);
+		q += infl[1];
+		s1 = sha1(sprintfa("%s %u\0%s",
+				   gittypename[type],
+				   size,
+				   obj));
+		printf("%s %s %d %d %d",
+		       s1,
+		       gittypename[type],
+		       size,
+		       zsize,
+		       off);
+		if(ref != nil){
+			ref = decodesha(ref);
+			printf(" ref (%d): %s", off, ref);
+			append(deltaq, ref);
+		}else if(roff != nil){
+			@local fd;
+			printf(" %d", off-roff);
+			dep = offtab[off-roff];
+			if(dep == nil)
+				error("no dep for %d\n", off-roff);
+			obj = patchdelta(dep.bytes, obj);
+			s1 = sha1(sprintfa("%s %u\0%s",
+					   gittypename[dep.type],
+					   strlen(obj),
+					   obj));
+			go = gitobj(off, obj, s1, dep.type);
+			sha1tab[s1] = go;
+			offtab[off] = go;
+			printf("added gitobj for %d\n", off);
+			fd = open(sprintfa("/tmp/deltas/%s", s1), "w");
+			write(fd, obj);
+			close(fd);
+		}else{
+			go = gitobj(off, obj, s1, type);
+			sha1tab[s1] = go;
+			offtab[off] = go;
+			printf("added gitobj for %d\n", off);
+		}
+		printf("\n");
+	}
+
+	foreach(@lambda(ref){ if(sha1tab[ref] == nil) printf("don't have %s\n", ref); }, deltaq);
+}
+
+
+@define packdom(packfilename)
+{
+	@local as;
+	as = mksas(mapfile(packfilename));
+	return mkdom(packns, as);
+}
+
+@define doit()
+{
+	dumppack(".git/objects/pack/pack-69e85119a854fd6a2ee39492c89badfbcea253c1.pack");
+	dumppack(".git/objects/pack/pack-6fbc3dd6ef5081869f060178a99a8ed07f41eec1.pack");
+}
+
+@define ispack(name)
+{
+	@local l;
+
+	l = strlen(name);
+	if(l < 5)
+		return 0;
+	if(substr(name, l-5, l) == ".pack")
+		return 1;
+	else
+		return 0;
+}
+
+@define findpacks(repo)
+{
+	@local gitobjdir, fn, pack;
+
+	gitobjdir = sprintfa("%s/.git/objects/pack", repo);
+	foreachfile(gitobjdir,
+		    @lambda(file){
+			    if(!ispack(file))
+				    return;
+			    fn = sprintfa("%s/%s", gitobjdir, file);
+			    printf("pack %s\n", fn);
+			    pack = packdom(fn);
+			    dumppack(pack);
+		    });
+}

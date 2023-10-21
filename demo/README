@@ -1,0 +1,17 @@
+This directory contains various examples of
+Cinquecento usage.
+
+examples.cqct
+
+  these are examples from the debug library manual
+  (doc/debug.html).
+
+  type "make" to build the sample programs.
+
+  to run all the examples:
+
+	% l1
+	; @include "examples.cqct"
+	; testexamples();
+
+  type "make clean" to remove the sample programs.

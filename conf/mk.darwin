@@ -1,0 +1,26 @@
+include conf/mk.unix
+
+L1C     += pcheap.c
+
+mkc: mkc.o
+	@echo + ld $@
+	$(V)$(CC) $(CFLAGS) -o $@ $^
+
+mks: mks.o
+	@echo + ld $@
+	$(V)$(CC) $(CFLAGS) -o $@ $^
+
+heap.o: l1.heap mks
+	@echo + mks $@
+	$(V)./mks -f r -a 0x1000 -p _ -s heapimage l1.heap $(IDIR)heap.S
+	$(V)$(AS) -o heap.o $(IDIR)heap.S
+	$(V)rm -f $(IDIR)heap.S
+
+l1: l1.o main.o heap.o
+	@echo + ld $@
+	$(V)$(CC) $(CFLAGS) -o $@ $^ $(L1LIBS)
+
+libl1.dylib: l1.o
+	@echo + ld $@
+	if [ ! -f libgcc_s.dylib ] ; then ln -s /usr/lib/libgcc_s.1.dylib libgcc_s.dylib ; fi
+	libtool -dynamic -lc -L. -lgcc_s -o $@ $^

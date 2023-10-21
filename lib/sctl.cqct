@@ -1,0 +1,281 @@
+@global
+	sctl,
+	Enone
+	;
+{
+
+Enone = "no such thing";
+
+sctl = @names clp64le {
+	typedef
+	enum Mkind {
+		Reserved0 = 0,
+		Rerror,
+		Reserved2,
+		Aevent,
+		Tversion,
+		Rversion,
+		Tping,
+		Rping,
+		Tps,
+		Rps,
+		Tlaunch,
+		Rlaunch,
+		Tattach,
+		Rattach,
+		Tstat,
+		Rstat,
+		Tcont,
+		Rcont,
+		Tstop,
+		Rstop,
+		Tstep,
+		Rstep,
+		Tsnap,
+		Rsnap,
+		Tkill,
+		Rkill,
+		Tdetach,
+		Rdetach,
+		Ttrace,
+		Rtrace,
+		Tsettrap,
+		Rsettrap,
+		Tclrtrap,
+		Rclrtrap,
+		Tgetctx,
+		Rgetctx,
+		Tsetctx,
+		Rsetctx,
+		Tread,
+		Rread,
+		Twrite,
+		Rwrite,
+		Tlooksym,
+		Rlooksym,
+		Tenumsym,
+		Renumsym,
+		Tlooktype,
+		Rlooktype,
+		Tenumtype,
+		Renumtype,
+		Tlookaddr,
+		Rlookaddr,
+		Tenumloc,
+		Renumloc,
+		Tenumseg,
+		Renumseg,
+		Tnames,
+		Rnames,
+		Tunwind1,
+		Runwind1,
+		Tlooksrc,
+		Rlooksrc,
+		Tlookpc,
+		Rlookpc,
+		Tnsinfo,
+		Rnsinfo,
+		Tmatchsyms,
+		Rmatchsyms,
+		Tlookaddrs,
+		Rlookaddrs,
+		Tsrv=254,
+		Rsrv,
+	} Mkind;
+
+	enum Mode {
+		/* trap modes */
+		Mbrk	= 0,
+		Msnap	= 1,
+	};
+	enum Flags {
+		/* launch flags */
+		Fstdin   = 1,		  /* redirect stdin */
+		Fstdout  = (Fstdin<<1),   /* redirect stdout */
+		Fstderr  = (Fstdout<<1),  /* redirect stderr */
+	};
+
+	typedef
+	enum Event {
+		Eclear	 = 0,
+		Eset	 = 1,
+		Esyscall = (Eset<<1),
+		Eexec	 = (Esyscall<<1),
+		Efork    = (Eexec<<1),
+		Eclone   = (Efork<<1),
+		Esignal  = (Eclone<<1),
+		Eexit    = (Esignal<<1),
+		Etrap    = (Eexit<<1),
+		Esnap	 = (Etrap<<1),
+		Estepctx = (Esnap<<1),
+		Eload	 = (Estepctx<<1),
+		Eunload	 = (Eload<<1),
+	} Event;
+
+	typedef
+	enum Prot {
+		PROT_READ	= 0x1,		/* Page can be read.  */
+		PROT_WRITE	= 0x2,		/* Page can be written.  */
+		PROT_EXEC	= 0x4,		/* Page can be executed.  */
+	} Prot;
+
+	typedef
+	enum Attrval {
+		Astr,
+		Acid,
+		Auint,
+	} Attrval;
+
+	typedef
+	enum Cbase
+	{
+		Vundef=0,
+		Vlo,
+		Vbool=Vlo,
+		Vchar,
+		Vshort,
+		Vint,
+		Vlong,
+		Vvlong,
+		Vuchar,
+		Vushort,
+		Vuint,
+		Vulong,
+		Vuvlong,
+		Vfloat,
+		Vdouble,
+		Vlongdouble,
+		Vcomplex,
+		Vdoublex,
+		Vlongdoublex,
+		Vnbase,
+		Vptr = Vnbase,		/* alias for some other base type */
+		Vvoid,
+		Vnallbase,
+	} Cbase;
+
+	/* base type representations */
+	typedef
+	enum Rkind
+	{
+		Rundef,
+		Ru08le,
+		Ru16le,
+		Ru32le,
+		Ru64le,
+		Rs08le,
+		Rs16le,
+		Rs32le,
+		Rs64le,
+		Ru08be,
+		Ru16be,
+		Ru32be,
+		Ru64be,
+		Rs08be,
+		Rs16be,
+		Rs32be,
+		Rs64be,
+		Rf32,
+		Rf64,
+		Rf96,
+		Rf128,
+		Rx64,
+		Rx128,
+		Rx192,
+		Rnrep,
+	} Rkind;
+
+	typedef
+	enum Tkind
+	{
+		Tvoid = 0,
+		Tbase = 1,
+		Tstruct = 2,
+		Tunion = 3,
+		Tenum = 4,
+		Tptr = 5,
+		Tarr = 6,
+		Tfun = 7,
+		Ttypedef = 8,
+		Tbitfield = 9,
+		Tconst = 10,
+		Txaccess = 11,		/* unused */
+		Tundef = 12,
+	} Tkind;
+
+	enum Stype
+	{
+		Sundef = 1,
+		Sdata = Sundef<<1,
+		Stext = Sdata<<1,
+		Sro = Stext<<1,
+		Senum = Sro<<1,
+		Sinline = Senum<<1,
+	};
+
+	typedef
+	enum Vkind
+	{
+		Vlocal,
+		Vparam,
+	} Vkind;
+
+	typedef
+	enum Lkind {
+		Lreg,
+		Lderef,
+		Ladd,
+		Lsub,
+		Lulit,
+		Lslit,
+		Lcfa,
+	} Lkind;
+
+	enum ELF_SHN {
+		SHN_UNDEF	= 0,
+		SHN_ABS		= 0xfff1,
+		SHN_COMMON	= 0xfff2,
+	};
+
+	typedef
+	enum Nssize {
+		M32		= 1,
+		M64		= 2,
+	} Nssize;
+
+	typedef
+	enum Nsenc {
+		Mle		= 1,
+		Mbe		= 2,
+	} Nsenc;
+
+	typedef
+	enum Nsabi {
+		sysv		= 0,
+		linux		= 3,
+		freebsd		= 9,
+		win		= 254,
+	} Nsabi;
+
+	typedef
+	enum Nsarch {
+		i386		= 3,
+		arm		= 40,
+		amd64		= 62,
+	} Nsarch;
+
+	typedef
+	struct Msg {
+		@0	uint8 op;
+		@1	uint32 tag;
+		@5;
+	} Msg;
+
+	typedef
+	enum Unwind_type
+	{
+	        Dwarf_unwind = 1,
+
+	} Unwind_type;
+};
+}

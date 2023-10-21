@@ -1,0 +1,71 @@
+@include <sys.cqct>
+
+/*
+ * I/O and filesystem
+ */
+
+printf("opening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_CREAT|unix`O_WRONLY,0600);
+printf("fd: %d\n",foo);
+
+@global buf;
+buf="this is some bogus text";
+printf("writing...\n");
+sys_write(foo,buf,length(buf));
+
+printf("closing\n");
+sys_close(foo);
+
+printf("reopening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_RDONLY,0600);
+printf("fd: %d\n",foo);
+
+st=(struct unix`stat *)malloc(sizeof(struct unix`stat));
+r=sys_fstat(foo,st);
+printf("stat returns %d (should succeed)\n",r);
+printf("size according to stat: %d bytes\n",st->st_size);
+
+m=sys_mmap(0,4096,unix`PROT_READ,unix`MAP_SHARED,foo,0);
+printf("mapped\n");
+
+sys_close(foo);
+
+m=(unsigned char *){mkmas(m,4096)}m;
+
+printf("mmap equal? %a\n",buf == getbytes(m,strlen(m)));
+
+printf("reopening...\n");
+foo=sys_open("/tmp/footestfile",unix`O_RDONLY,0600);
+
+b=malloc(1024);
+l=sys_read(foo,b,1024);
+
+printf("read %d bytes...\n",l);
+
+printf("read equal? %a\n",((l == strlen(buf)) &&
+                           (buf == getbytes(b,l))
+                          ));
+
+sys_close(foo);
+
+/*
+ * Process
+ */
+
+printf("getpid() == sys_getpid() : %d\n",getpid() == sys_getpid());
+
+// test fork, getppid, exit all in one go
+{
+  @local p;
+  p=sys_getpid();
+  if(!sys_fork()) {
+    printf("child ppid == parent pid: %d\n",sys_getppid() == p);
+    printf("child pgid == parent pid: %d\n",sys_getpgid(sys_getpid()) == p);
+    sys_setpgid(sys_getpid(),sys_getpid());
+    printf("setpgid works: %d\n",sys_getpgid(sys_getpid()) == sys_getpid());
+    sys_exit(0);
+    printf("child exit fails\n");
+  } 
+}
+
+

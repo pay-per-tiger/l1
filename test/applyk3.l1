@@ -1,0 +1,27 @@
+@global a;
+
+a = 1;
+
+applyk(dynamicwind,
+ @lambda(r) { printf("in success! %a\n",a); },
+ @lambda(msg) { printf("in fail %a:%s\n",a,msg); },
+ [@lambda() {
+   ++a;
+ },
+ @lambda() { printf("%s",100); },
+ @lambda() {
+   --a;
+ }]);
+
+printf("%a\n", a);
+
+applyk(dynamicwind,
+ @lambda(r) { printf("in success! %a\n",a); },
+ @lambda(msg) { printf("in fail %a:%s\n",a,msg); },
+ [@lambda() {
+   ++a;
+ },
+ @lambda() { ; },
+ @lambda() {
+   --a;
+ }]);

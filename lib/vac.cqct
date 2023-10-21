@@ -1,0 +1,72 @@
+venti_host = "localhost";
+
+@define newvac(name)
+{
+	@local fd, vac;
+	// empty string lets us create an empty vac
+	fd = popen("vac", "-h", venti_host, "");
+	close(fd[0]);
+	vac = fread(fd[1], 100);
+	close(fd[1]);
+	if(vac == nil){
+		@local err;
+		err = fread(fd[2], 128);
+		if(err != nil)
+			error("newvac: %s", err);
+		else
+			error("newvac: failed");
+	}
+	close(fd[2]);
+	return chomp(vac);
+}
+
+// #!/bin/sh
+// vac=$1
+// name=$2
+// dir=`mktemp -d`
+// old=`pwd`
+// cd $dir
+// echo $vac > x.vac
+// vac -b 4k -h localhost -i $name -m x.vac
+// cd $old
+// rm -rf $dir
+
+@define vaccons(vac, name, bytes)
+{
+	@local fd;
+	fd = popen("vaccons", vac, name);
+	write(fd[0], bytes);
+	close(fd[0]);
+	vac = fread(fd[1], 100);
+	close(fd[1]);
+	if(vac == nil){
+		@local err;
+		err = fread(fd[2], 128);
+		if(err != nil)
+			error("vaccons: %s", err);
+		else
+			error("vaccons: failed");
+	}
+	close(fd[2]);
+	return chomp(vac);
+}
+
+@define mountvac(vac)
+{
+	@local fd;
+	fd = popen("vacfs", "-d", "-h", venti_host, "-i", vac, 2);
+	session9p(fd);
+	attach9p(fd, getenv("USER"));
+	stat9p(fd, 0);
+	clunk9p(fd, 0);
+	close(fd[0]);
+}
+
+@define test()
+{
+	@local v;
+	v = newvac("name");
+	v = vaccons(v, "f1", "abc");
+	v = vaccons(v, "f2", "def");
+	mountvac(v);
+}

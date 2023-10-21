@@ -1,0 +1,4 @@
+vector( vector( a, 1 ), vector( b, 2 ) )
+vector( vector( a, 1 ), vector( b, 2 ) )
+vector( )
+vector( )

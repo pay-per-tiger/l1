@@ -1,0 +1,174 @@
+/* this is a compatibility shim to bring record-bearing
+ * forward easily.
+ */
+
+@global rds;
+rds = [:];
+
+@global rdsym;
+@global _tmprd;
+@global super_secret_record_key;
+
+@defstx @rec(recname, fields ...) {
+	@local foo, x, c, bar;
+	@local this_record_key, isrecsym;
+
+	@global super_secret_record_key;
+	if(!super_secret_record_key)
+		super_secret_record_key = gensym();
+
+	@global rdsym;
+	if(!rdsym)
+		rdsym = gensym();
+
+	if(stxkind(fields) == 'null)
+		error("record has no fields");
+
+	this_record_key = gensym();
+
+	foo = #[];
+	bar = [];
+	c = fields;
+	x = 0;
+	while(c[1]) {
+		foo = stxsplice(foo, #`{ t.#,(c[0]) = (l <= #,x)?nil:vals[#,x];});
+		append(bar, stxid(c[0]));
+		c = c[1];
+		x++;
+	}
+
+	isrecsym = mkstxid(mkcid("is" + cid2str(stxid(recname))));
+
+	return #`{
+		_tmprd = @lambda() {
+			@local constructor, rd, fieldnames;
+
+			rd = [:];
+			fieldnames = #,bar;
+
+			constructor = @lambda(vals ...) {
+				@local t, l;
+
+				l = length(vals);
+				if(l > #,x) {
+					error("too many values for record type");
+				}
+
+				t = mktab(@lambda() {
+					error("record has no such field");
+				});
+
+				#,foo;
+
+				mktabpriv(t, "record");
+				t.#,rdsym = rd;
+				t.#,super_secret_record_key = 1;
+				t.#,this_record_key = 1;
+
+				tabsetfmt(t, @lambda(v) {
+					@local f;
+
+					f = rd.fmt;
+					if(f)
+						return f(v);
+					else
+						return "<record>";
+				});
+
+				return t;
+			};
+
+			rds[constructor] = rd;
+
+			rd.constructor = constructor;
+			rd.fields = fieldnames;
+			mktabpriv(rd, "rd");
+
+			return rd;
+		}(), #,recname = rdmk(_tmprd), #,isrecsym = @lambda(val) {
+			if(!isprivtable(val))
+				return 0;
+
+			if(tabhas(val, #,(stxid(this_record_key))))
+				return 1;
+
+			return 0;
+		},
+		#,isrecsym = #,isrecsym, //eliminate unused warnings
+		_tmprd;
+	};
+}
+
+rdsetfmt = @lambda(rd, fmt) {
+	rd.fmt = fmt;
+};
+
+rdof = @lambda(rec) {
+	return rec[stxid(rdsym)];
+};
+
+rdgettab = @lambda(rd) {
+	@local t;
+
+	t = [:];
+	//printf("GETTING THE GETTER TAB FROM AN RD. THE FIELDS ARE %a\n", rd.fields);
+	foreach(@lambda(v) {
+		//printf("BUILDING GETTER FOR %a\n", v);
+		t[v] = @lambda(rec) {
+			return rec[v];
+		};
+	}, rd.fields);
+
+	return t;
+};
+
+rdsettab = @lambda(rd) {
+	@local t;
+
+	t = [:];
+	//printf("GETTING THE SETTER TAB FROM AN RD. THE FIELDS ARE %a\n", rd.fields);
+	foreach(@lambda(v) {
+		t[v] = @lambda(rec, val) {
+			rec[v] = val;
+			;
+		};
+	}, rd.fields);
+
+	return t;
+};
+
+rdmk = @lambda(rd) {
+	//printf("GETTING THE CONSTRUCTOR FROM THE RECORD DESCRIPTOR! %a\n", rd);
+	if(!rd || !rd.constructor) {
+		error("THIS ISN'T A RECORD DESCRIPTOR!\n");
+	}
+	return rd.constructor;
+};
+
+isrec = @lambda(val) {
+	if(!isprivtable(val))
+		return 0;
+
+	if(tabhas(val, stxid(super_secret_record_key)))
+		return 1;
+
+
+	return 0;
+};
+
+/*
+ * Convert a record to a table.
+ *
+ * Does not attempt to protect you from cycles. Don't try to convert cyclic
+ * records to tables.
+ */
+@define rec2tab(rec) {
+  @local t;
+  t = [:];
+  foreach(@lambda (k, v) {
+    @local val;
+    val = v(rec);
+    t[k] = isrec(val) ? rec2tab(val) : val;
+  }, rdgettab(rdof(rec)));
+  return t;
+}

@@ -1,0 +1,265 @@
+#!/bin/bash
+	exec l1 -e srec2bin "$0" "$@"
+	exit 1
+!#
+
+getfile = @lambda(filename) {
+	@local getfd;
+	getfd = @lambda(fd) {
+		@local acc, r;
+
+		acc = "";
+
+		while(1) {
+			r = read(fd, 1024);
+			if(r && (length(r) == 0)) {
+				return acc;
+			} else if(!r) {
+				return acc;
+			} else if(r && (length(r) > 0)) {
+				acc += r;
+			} else {
+				return acc;
+			}
+		}
+		return acc;
+	};
+
+	if(!filename) {
+		return getfd(stdin);
+	} else {
+		@local st;
+
+		st = stat(filename);
+
+		if(st && st.kind) {
+			if((st.kind == 'file) || (st.kind == 'block))
+				return mapfile(filename);
+		} else {
+			@local fd;
+
+			fd = open(filename, "r");
+			return getfd(fd);
+		}
+	}
+};
+
+bin2srec = @lambda(bin_str, start_addr, width, entry_point) {
+	@local addr_bytes, x, dump_row, u32check;
+
+	addr_bytes = 4;
+
+	if((addr_bytes + width + 1) >= 256) {
+		fprintf(stderr, "excessive width");
+		return nil;
+	}
+
+	u32check = @lambda(val) {
+		return (unsigned char)((unsigned char)((val >> 24) & 0xff)
+			+ (unsigned char)((val >> 16) & 0xff)
+			+ (unsigned char)((val >> 8) & 0xff)
+			+ (unsigned char)((val >> 0) & 0xff));
+	};
+
+	dump_row = @lambda(idx, len) {
+		@local check, y, addr, line_bytes;
+
+		addr = start_addr + idx;
+		line_bytes = (addr_bytes + len + 1);
+		check = (unsigned char)line_bytes;
+		printf("S3%02X%08X", line_bytes, addr);
+		check += u32check(addr);
+		for(y = 0; y < len ; y++) {
+			printf("%02X", bin_str[idx + y]);
+			check += bin_str[idx + y];
+		}
+		printf("%02X", (unsigned char)~check);
+		printf("\n");
+	};
+
+	for(x = 0 ; (x + width) < length(bin_str) ; x += width) {
+		dump_row(x, width);
+	}
+	if(x < length(bin_str)) {
+		dump_row(x, length(bin_str) - x);
+	}
+	{
+		@local line_bytes;
+
+		line_bytes = addr_bytes + 1;
+		printf("S7%02X%08X%02X\n", line_bytes,
+			entry_point,
+			(unsigned char)~(line_bytes + u32check(entry_point)));
+	}
+};
+
+srec2bin = @lambda(args ...) {
+	@local srec_filename, srec_str, srec_lines, x, gethex,
+		c2i, write_cursor, dump_line, verbose, pad_start,
+		usage, reverse, addr, entry, verify;
+
+	verbose = nil;
+	pad_start = nil; // emit zeros from addr 0 until addr of first record
+	reverse = nil;
+	addr = 0; // for reverse
+	entry = 0; // for reverse
+	verify = 1; // verify line checksums
+
+	usage = @lambda(fd) {
+		fprintf(fd, "Usage: %s [--verbose|-v] [--pad-start|-P] [--reverse] [--addr] [--entry] [--noverify] [--help|-h] <srec-file>\n", args[0]);
+	};
+
+	for(x = 1 ; x < length(args) ; x++) {
+		if((args[x] == "--verbose") || (args[x] == "-v")) {
+			verbose = 1;
+		} else if((args[x] == "--pad-start") || (args[x] == "-P")) {
+			pad_start = 1;
+		} else if((args[x] == "--help") || (args[x] == "-h")) {
+			usage(stdout);
+			sys_exit(0);
+		} else if((args[x] == "--reverse")) {
+			reverse = 1;
+		} else if((args[x] == "--addr") && ((x + 1) < length(args))) {
+			addr = strton(args[x + 1]);
+			x++;
+		} else if((args[x] == "--entry") && ((x + 1) < length(args))) {
+			entry = strton(args[x + 1]);
+			x++;
+		} else if((args[x] == "--noverify")) {
+			verify = 0;
+		} else {
+			break;
+		}
+	}
+
+	if(x == length(args)) {
+		srec_str = getfile(nil);
+	} else {
+		srec_filename = args[x];
+		srec_str = getfile(srec_filename);
+	}
+
+	if(reverse) {
+		return bin2srec(srec_str, addr, 32, entry);
+	}
+
+	srec_lines = split(srec_str, "\n");
+
+	c2i = [
+		'0': 0,   '1': 1,   '2': 2,   '3': 3,
+		'4': 4,   '5': 5,   '6': 6,   '7': 7,
+		'8': 8,   '9': 9,   'A': 0xA, 'B': 0xB,
+		'C': 0xC, 'D': 0xD, 'E': 0xE, 'F': 0xF
+	];
+
+	gethex = @lambda(str, start, ndigits, check) {
+		@local l, acc, x, d, p;
+
+		l = length(str);
+		if((start + ndigits) < l) l = (start + ndigits);
+
+		acc = 0;
+		p = 0;
+		for(x = start ; x < l ; x += 1, p++) {
+			acc *= 16;
+			d = c2i[str[x]];
+			if(d) {
+				acc += d;
+				check += d * ((p%2)?1:16);
+			}
+		}
+
+		return [acc, (unsigned char)(check)];
+	};
+
+	write_cursor = nil;
+
+	dump_line = @lambda(addr, line_bytes, s) {
+		@local fill_bytes;
+
+		fill_bytes = 0;
+		if(isnil(write_cursor)) {
+			fprintf(stderr, "initial load at address 0x%x\n", addr);
+			if((addr != 0) && pad_start) {
+				@local pad;
+				fill_bytes = addr;
+				pad = mkstr(fill_bytes);
+				write(stdout, pad);
+			}
+		} else {
+			if(write_cursor > addr) {
+				fprintf(stderr, "out-of-order lines\n");
+			} else if(write_cursor < addr) {
+				@local fill;
+				fill_bytes = addr - write_cursor;
+				fill = mkstr(fill_bytes);
+				write(stdout, fill);
+			}
+		}
+		if(verbose) {
+			if(fill_bytes) {
+				fprintf(stderr, "filling %d bytes\n", fill_bytes);
+			}
+			fprintf(stderr, "dumping line at address 0x%x\n", addr);
+		}
+		write(stdout, s);
+		write_cursor = addr + line_bytes;
+	};
+
+	for(x = 0 ; x < length(srec_lines) ; x++) {
+		@local line, line_len, addr, line_bytes, y, s,
+			chk, mode, addr_bytes;
+
+		line = srec_lines[x];
+		line = split(line, "\r");
+		if(!length(line)) continue;
+		line = line[0];
+
+		if(strlen(line) < 2) continue;
+
+		switch([ line[0], line[1] ]) {
+		@match(['S', '3']): mode = 'data; addr_bytes = 4; break;
+		@match(['S', '2']): mode = 'data; addr_bytes = 2; break;
+		@match(['S', '1']): mode = 'data; addr_bytes = 1; break;
+		@match(['S', '7']): mode = 'term; addr_bytes = 4; break;
+		default: mode = 'ignore;
+		}
+
+		if(mode == 'data) {
+			@local line_cursor;
+
+			chk = 0;
+			[line_len, chk] = gethex(line, 2, 2, chk);
+			[addr, chk] = gethex(line, 4, addr_bytes * 2, chk);
+			line_bytes = line_len - (addr_bytes + 1);
+			s = mkstr(line_bytes);
+			line_cursor = 4 + (addr_bytes * 2);
+			for(y = 0 ; y < line_bytes ; y++) {
+				@local b;
+				[b, chk] = gethex(line, line_cursor + (y * 2), 2, chk);
+				s[y] = b;
+			}
+			[_, chk] = gethex(line, line_cursor + (y * 2), 2, chk);
+			if(verify && (chk != 0xff)) {
+				fprintf(stderr, "data checksum error in row 0x%x skipping %d bytes\n",
+					addr, line_bytes);
+				continue;
+			} else {
+				dump_line(addr, line_bytes, s);
+			}
+		} else if(mode == 'term) {
+			chk = 0;
+			[line_len, chk] = gethex(line, 2, 2, chk);
+			[addr, chk] = gethex(line, 4, addr_bytes * 2, chk);
+
+			[_, chk] = gethex(line, 4 + (addr_bytes * 2), 2, chk);
+			if(verify && (chk != 0xff)) {
+				fprintf(stderr, "S7 checksum error. skipping\n", addr, line_bytes);
+				continue;
+			} else {
+				fprintf(stderr, "entry point: 0x%x\n", addr);
+			}
+		} else if(mode == 'ignore) {
+		}
+	}
+};

@@ -1,0 +1,60 @@
+@include <debug.cqct>
+@include <nsutil.cqct> /* printtype */
+
+@define fmtsym(s)
+{
+	if(s == nil)
+		return("<undefined>");
+	return sprintfa("@0x%016p\t%t;", symoff(s), s);
+}
+
+
+@define test1(path, syms, types)
+{
+	@local ns, rv;
+	ns = atnames(path);
+	foreach(@lambda(s){
+			rv = looksym(ns, s);
+			printf("looksym(%a) -> %s\n", s, fmtsym(rv));
+		}, syms);
+	foreach(@lambda(t){
+			rv = looktype(ns, t);
+			printf("looktype(%t) -> %a\n", t, rv);
+			if(isctype(rv))
+				printtype(rv);
+		}, types);
+}
+
+@define test2(path)
+{
+	@local ns, ts, ss;
+	ns = atnames(path);
+	ts = ns.enumtype();
+	foreach(@lambda(k,v){
+			printtype(v);
+			if(!issu(v))
+				return;
+			if(0)if(length(suetag(v)) >= 7
+			   && substr(suetag(v), 0, 7) == "anon")
+				printtype(v);
+		}, ts);
+	ss = ns.enumsym();
+	foreach(@lambda(k, v){
+			printf("%s\n", fmtsym(v));
+		}, ss);
+}
+
+test1("./locals1",
+      [ 'locals, 'foo, 'main, 'v6 ],
+      [
+	      @typename(int),
+	      @typename(Node),
+	      @typename(struct Node),
+	      @typename(X),
+	      @typename(enum X),
+	      @typename(enum Y),
+	      @typename(Z),
+	      @typename(struct Z),
+      ]);
+
+test2("./locals1");

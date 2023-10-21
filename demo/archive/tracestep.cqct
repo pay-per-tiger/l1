@@ -1,0 +1,59 @@
+@include <ctlmux.cqct>
+@include <util.cqct>
+
+@define test2()
+{
+	@local ctl, mux, ns, as, dom, i, regs;
+
+	mux = mkctlmux_local();
+	ctl = mux.launch(["./mclones32"], 0);
+	as = ctl.mem();
+	ns = ctl.ns();
+	dom = mkdom(ns, as);
+	dom.map();
+	time(@lambda(){
+			for(i = 0; i < 100; i++){
+				regs = ctl.reg();
+				printf("step %5d: cs = %x rip = %p\n",
+				       i, regs->cs, regs->rip);
+				dom.xstep();
+			}
+		});
+	dom.kill();
+}
+
+@define test1()
+{
+	@local ctl, mux, ns, as, dom, i, regs;
+
+	mux = mkctlmux_local();
+	ctl = mux.launch(["./exit"], 0);
+	as = ctl.mem();
+	ns = ctl.ns();
+	dom = mkdom(ns, as);
+	dom.map();
+	time(@lambda(){
+			for(i = 0; i < 100; i++){
+				regs = ctl.reg();
+				printf("step %5d: cs = %x rip = %p\n",
+				       i, regs->cs, regs->rip);
+				dom.xstep();
+			}
+		});
+	dom.kill();
+}
+
+if(length(args) == 1){
+	test1();
+	test2();
+}else if(length(args) == 2){
+	switch(args[1]){
+	case "1":
+		return test1();
+	case "2":
+		return test2();
+	default:
+		error("no such test %a", args[1]);
+	}
+}else
+	error("usage: %s <testno>", args[0]);

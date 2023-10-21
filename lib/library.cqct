@@ -1,0 +1,522 @@
+@global library_defined;
+
+/*
+   Prototype implementation of a library system for l1.
+
+   see doc/library_system.html
+*/
+
+@defstx @dprintf(args...) {
+    //return #`{ printf(#,@args); };
+    return #[];
+}
+
+@dprintf("Library debug output enabled\n");
+
+if (library_defined == nil)
+{
+	//This global contains compiled libraries.
+	//It is not meant for general use.
+	@global __library_exports;
+
+	library_defined = 1;
+
+	//the library system mechanism must be set at compile time.
+	//this macro is used to allow the various bindings
+	//needed by the library system to be initialized before the
+	//library system has a chance to run.
+	@defstx @__library_compiletimecode() {
+		@local libfns, reload;
+		@dprintf("Initializing library system\n");
+
+		//__library_exports is a map from library identifiers (cids) to
+		//a map from exported symbols (also cids) to the value of those
+		//exported symbols defined by that library.
+		__library_exports = mktab(mktab);
+
+		//library_exports[0] is a special map for functions that are
+		//used within this file.
+		__library_exports[0] = libfns = [:];
+
+		//this controls if libraries get reloaded on every import
+		reload = 0;
+
+		@defloc set_reload(v) { reload = v; }
+		libfns.set_reload = set_reload;
+
+		@defloc get_reload() { reload; }
+		libfns.get_reload = get_reload;
+
+		libfns.pathto = loadwhich;
+
+		@defloc mkliberror(src) {
+			@local s;
+			s = stxsrc(src);
+			@dprintf("+++Making liberror for %a\n",s);
+			if (s[1] != nil) {
+				@defloc liberror(msg,args...) {
+					@dprintf("+++error for %a\n",s);
+					msg = "error: %s:%d: " + msg;
+					apply(error,msg,s[0],s[1],args);
+				}
+				return liberror;
+			} else {
+				@defloc liberror(msg,args...) {
+					@dprintf("+++error for %a\n",s);
+					msg = "error: %s: " + msg;
+					apply(error,msg,s[0],args);
+				}
+				return liberror;
+			}
+		}
+		libfns.mkliberror = mkliberror;
+
+		@defloc is_loaded(lib) {
+			return __library_exports[lib].loaded;
+		}
+		libfns.is_loaded = is_loaded;
+
+		@defloc load_library(err,lib) {
+			@local l,fp,parsed,compiled;
+			@global __library_exports;
+			@dprintf("+++Loading library %s\n",lib);
+
+			if (__library_exports[lib] == nil)
+				__library_exports[lib] = [:];
+
+			if (__library_exports[lib].loading) {
+				err("recursive dependency encountered in "
+				    "library %s", lib);
+			}
+			__library_exports[lib].loading = 1;
+
+			__library_exports[lib].exports = [:];
+
+			fp = libfns.pathto(cid2str(lib) + ".cql");
+
+			if (fp == nil) {
+				//if the library was defined manually, this
+				//will be its parsed contents
+				parsed = __library_exports[lib].parsed;
+			} else {
+				//load and parse the library
+				l = mapfile(fp);
+				l = sprintfa("@library(%s,1) { %s }",lib,l);
+				parsed = parse(l,fp);
+			}
+
+			if (parsed == nil)
+				err("could not load library %a",lib);
+
+			compiled = applyk(compile,
+				@lambda(r) { r; },
+				@lambda(msg) {
+					callcc(@lambda(k) {
+						printstack(
+						    continuationstack(k));
+					});
+					err("could not load library %a: %s",
+					    lib,msg);
+				}, [parsed]);
+			@dprintf("+++Compiled %s\n",lib);
+
+			if (compiled == nil)
+				err("could not load library %a",lib);
+
+			__library_exports[lib].compiled = @lambda() {
+				@dprintf("+++Initializing %s\n",lib);
+				applyk(compiled,
+				       @lambda(r) { r; },
+				       @lambda(m) {
+				         err("could not load "
+				             "library %a: %s",
+				             lib, m);
+				       }, []);
+				__library_exports[lib].compiled = @lambda() {
+					@dprintf("+++Another initialization "
+					         "of %s\n", lib);
+				};
+			};
+
+			__library_exports[lib].loading = 0;
+			__library_exports[lib].loaded = 1;
+			@dprintf("+++Finished loading %s\n",lib);
+		}
+		libfns.load_library = load_library;
+
+		//returns [str, dotval], where str is nil if there is an error.
+		//str is the name of the library dotval is the value to the
+		//right of the dot if the given syntax is invalid, str will be
+		//nil
+		@defloc mklibstr(lib) {
+			@local has_dot;
+			has_dot = nil;
+			@defloc mklibstr_helper(lib) {
+				switch(lib) {
+				@match #div(x,y):
+					x = mklibstr_helper(x);
+					y = mklibstr_helper(y);
+					if (isnil(x) || isnil(y))
+						return nil;
+					return sprintfa("%s/%s", x, y);
+				@match #dot(x,#id(y)):
+					//error
+					if (has_dot != nil) return nil;
+					has_dot = y;
+					return mklibstr_helper(x);
+				@match #id(x):
+					return cid2str(x);
+				}
+				return nil; //error
+			}
+			return [mklibstr_helper(lib),has_dot];
+		}
+		libfns.mklibstr = mklibstr;
+
+		@defloc create_import(var, lib, export) {
+			return #`{
+				#,(#id(var)) = __library_exports
+						[#,(#val(lib))]
+						['exports]
+						[#,(#val(export))];
+				//FIXME hack to avoid variable
+				//defined but not referenced
+				//warnings
+				#,(#id(var)) = #,(#id(var));
+			};
+		}
+		libfns.create_import = create_import;
+
+		@defloc handle_fnlib_import(err, x, y) {
+			@local lname, has_dot, new_local, lnamecid, fn;
+			@local new_body;
+
+			[lname,has_dot] = mklibstr(y);
+			if (stxkind(x) != 'id || lname == nil)
+				err("bad import specification");
+			lnamecid = mkcid(lname);
+
+			fn = stxid(x);
+			new_local = #id(fn);
+
+			if (!is_loaded(lnamecid))
+				load_library(err, lnamecid);
+
+			if (has_dot != nil) {
+				@local lfn;
+				lfn = has_dot;
+				if (__library_exports[lnamecid]
+				    .exports[lfn] == nil)
+				{
+					err("attempt to import "
+					    "non-exported symbol "
+					    "%s from %s",
+					    lfn,lname);
+				}
+				@dprintf("   importing %s from %s\n",
+				         lfn, lnamecid);
+				new_body = create_import(fn, lnamecid, lfn);
+			} else {
+				new_body = #`{
+					#,(#id(fn)) =
+					    copy(__library_exports
+					         [#,(#val(lnamecid))]
+					         ['exports]);
+				};
+				@dprintf("   importing object %s\n", lnamecid);
+			}
+			return [lnamecid, #[new_local], new_body];
+		}
+		libfns.handle_fnlib_import = handle_fnlib_import;
+
+		@defloc handle_lib_import(err, en) {
+			@local lname, has_dot, new_locals, new_body;
+			@local lnamecid;
+
+			[lname,has_dot] = libfns.mklibstr(en);
+
+			new_locals = #[];
+			new_body = #[];
+
+			if (lname == nil || has_dot != nil)
+				err("bad import specification");
+
+			lnamecid = mkcid(lname);
+
+			if (!is_loaded(lnamecid))
+				load_library(err, lnamecid);
+
+			foreach(@lambda(lfn,_) {
+				@dprintf("   importing %s from %s\n",
+				         lfn, lnamecid);
+				new_locals = Zcons(#id(lfn), new_locals);
+				new_body = Zcons(create_import(lfn,
+				                               lnamecid,
+				                               lfn),
+				                  new_body);
+			},__library_exports[lnamecid]['exports]);
+
+			return [lnamecid, new_locals, new_body];
+		}
+		libfns.handle_lib_import = handle_lib_import;
+
+		@defloc handle_import(err, en) {
+			//parse (fn, lib), (fn, lib.fn), or (lib)
+			switch(en) {
+			@match #comma(x,y): //(fn, lib)
+				return handle_fnlib_import(err, x, y);
+			default: //lib
+				return handle_lib_import(err, en);
+			}
+		}
+		libfns.handle_import = handle_import;
+
+		@defloc mkreload(src, libs) {
+			return #`{ {
+				@local liberror;
+				liberror = __library_exports[0].mkliberror(
+				                                 #,(#val(src)));
+				foreach(@lambda(lnamecid) {
+					__library_exports[0].load_library(
+					  liberror, lnamecid);
+				},  #,(libs) );
+			} };
+		}
+		libfns.mkreload = mkreload;
+
+		//primary import function -- all @import macros use this
+		//glob: decides if it is global or local imports
+		//src: syntax with stxsrc defined, for error messages
+		//imports: list of import specifications
+		//body: code in which the import specifications will be bound
+		@defloc doimport(glob, src, body, imports) {
+			@local new_body, new_locals, liberror, libnms;
+			@global __library_exports;
+
+			liberror = mkliberror(src);
+
+			new_body = Zcons(body,Znull());
+			new_locals = Znull();
+			libnms = [];
+
+			//iterate over all of the imports
+			foreach(@lambda(en) {
+				@local res;
+				res = handle_import(liberror, en);
+				append(libnms, res[0]);
+				foreach(@lambda(local) {
+					new_locals = Zcons(local, new_locals);
+				}, res[1]);
+				new_body = Zcons(res[2], new_body);
+			}, imports);
+
+			foreach(@lambda(lib) {
+				@local s;
+				s = #`{ __library_exports[#,lib].compiled(); };
+				new_body = Zcons(s,new_body);
+			}, map(@lambda(x) { #val(x); }, libnms));
+
+			if (get_reload()) {
+				new_body = Zcons(mkreload(src, libnms),
+				                 new_body);
+			}
+
+			if (glob)
+				return #[#global(new_locals),
+				         #block(#[],new_body,stxsrc(src))];
+			else
+				return #[#block(new_locals,new_body,
+				                stxsrc(src))];
+		}
+		libfns.doimport = doimport;
+
+		//we just want the above computation to happen at compile time.
+		return #[];
+	}
+
+	//initializes the library system.
+	@__library_compiletimecode();
+
+	@defstx @reload_imports(v) {
+		@dprintf("---Running @reload_imports(%a)",v);
+		__library_exports[0].set_reload(compile(v)());
+		return #`{
+			__library_exports[0].set_reload(#,(v));
+		};
+	}
+
+	//bare import statements are the sign of a problem -- let the user know
+	@defstx @import(args...) {
+		__library_exports[0].mkliberror(args)(
+		    "@import statements not allowed outside of libraries");
+		return #[];
+	}
+
+	//by default, @export is not allowed
+	@defstx @export(args...) {
+		__library_exports[0].mkliberror(args)(
+		    "@export statements not allowed outside of libraries");
+		return #[];
+	}
+
+	//this macro adds the provided path to the loadpath at compile time.
+	@defstx @add_loadpath(path) {
+		@local p,lp;
+		@dprintf("+++@add_loadpath(%a)",path);
+		p = compile(path)();
+		lp = loadpath();
+		append(lp,p);
+		setloadpath(lp);
+		return #`{ nil; };
+	}
+
+	@defstx @with_imports(imports...) body {
+		@local libfns;
+		libfns = __library_exports[0];
+		return libfns.doimport(0, imports /* src */, body, imports);
+	}
+
+	@defstx @import_globals(imports...) {
+		@local libfns;
+		libfns = __library_exports[0];
+		return libfns.doimport(1, imports /* src */, #[], imports);
+	}
+
+	@defstx @import_object(obj) {
+		@local libfns;
+		libfns = __library_exports[0];
+		return libfns.doimport(0, obj /* src */,
+		                       #`{ the_obj },
+		                       #[ #comma(#id('the_obj), obj) ]);
+	}
+
+	//this macro allows one to export some symbols as though they were part
+	//of a library with the provided name
+	@defstx @with_exports(name,exports...) body {
+		@local libname, libnamecid, new_body, new_locals;
+		@local new_postbody, s, libfns, src;
+
+		libfns = __library_exports[0];
+
+		[libname,_] = libfns.mklibstr(name);
+		libnamecid = mkcid(libname);
+
+		//new_body collects the body of the syntax for this macro to
+		//return the first thing we need to have done is to register
+		//that this library exists by setting it's hash table in the
+		//__library_exports.
+		new_body = #`{
+			if (__library_exports[#,(#val(libnamecid))] == nil)
+				__library_exports[#,(#val(libnamecid))] =
+				    mktab();
+		};
+
+		//new_postbody collects statements to be run after the main
+		//body of this library.
+		new_postbody = Znull();
+
+		//new_locals is the set of local variables specific to this
+		//library.
+		new_locals = Znull();
+
+		foreach(@lambda(en) {
+			@dprintf("+++%s exports %s\n", libnamecid, stxid(en));
+
+			new_locals = Zcons(en,new_locals);
+
+			s = #`{
+				__library_exports[#,(#val(libnamecid))]
+				                 ['exports]
+				                 [#,(#val(stxid(en)))]
+				    = #,(en);
+			};
+			//put a temporary marker in the __library_exports
+			//so that we can fail compilation when unexported
+			//symbols are referenced
+			__library_exports[libnamecid].exports[stxid(en)]
+				= 'defined;
+
+			new_postbody = Zcons(s,new_postbody);
+		}, exports);
+
+		new_body = Zcons(new_body,Zcons(body,new_postbody));
+
+		src = stxsrc(body);
+
+		return #[#scope(#block(new_locals,new_body,src))];
+
+	}
+
+	//This macro is used to define a library -- it is not expected to be
+	//used by the user (though it should produce no errors), but instead it
+	//wraps around the bodies of libraries before the libraries are
+	//compiled. See load_library.  When anything is provided in the empty
+	//parameter, the macro updates the __library_exports parsed mapping and
+	//returns no code. Otherwise it returns the combination of
+	//@with_imports and @with_exports that are implied by the usage of
+	//@import and @export in the given body.
+	@defstx @library(name, empty...) body {
+		@local libname, export_params, import_params, locals;
+		@local new_stmts, ret, libfns, nparse, liberror;
+
+		libfns = __library_exports[0];
+
+		liberror = libfns.mkliberror(body);
+
+		nparse = libfns.mklibstr(name);
+		if (nparse[0] == nil || nparse[1] != nil)
+			liberror("could not parse library name: %a\n",name);
+		libname = mkcid(nparse[0]);
+
+		import_params = [];
+		export_params = [];
+
+		if (__library_exports == nil) {
+			__library_exports = [:];
+		}
+
+		new_stmts = Znull();
+		switch(body) {
+		@match #scope(#block(l, stmts)):
+			locals = l;
+			foreach(@lambda(s) {
+				switch(s) {
+				@match #mcall(#id('import), args):
+					append(import_params,args);
+					break;
+				@match #mcall(#id('export), args):
+					append(export_params,args);
+					break;
+				default:
+					new_stmts = Zcons(s,new_stmts);
+				}
+			},stmts);
+			break;
+		default: liberror("could not parse body: ",body);
+		}
+
+		new_stmts = Zreverse(new_stmts);
+
+		ret = #scope(#block(#[], new_stmts, stxsrc(body)));
+
+		foreach(@lambda(args) {
+			ret = #mcall(#id('with_imports),args,ret);
+		},import_params);
+
+		foreach(@lambda(export) {
+			export = Zcons(name,export);
+			ret = #mcall(#id('with_exports),export,ret);
+		},export_params);
+
+		if (__library_exports[libname] == nil)
+			__library_exports[libname] = [:];
+
+		ret = #scope(#block(locals, ret, stxsrc(body)));
+
+		__library_exports[libname].parsed = ret;
+
+		if (empty == #[]) return #[];
+		else return __library_exports[libname].parsed;
+	}
+
+}

@@ -1,0 +1,13 @@
+# produce a portable l1 that runs on a lot of ARM embedded in HPC
+CC=arm-linux-gnueabi-gcc
+LD=arm-linux-gnueabi-ld
+ARCH=armv7l
+CFLAGS+=-static
+
+include conf/mk.linux
+
+RT=qemu-arm
+
+tl1s: tl1.o main.o
+	@echo + ld $@
+	$(V)$(CC) $(CFLAGS) -o $@ $^ $(L1LIBS)

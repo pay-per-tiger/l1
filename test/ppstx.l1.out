@@ -1,0 +1,51 @@
+#[#if(#eq(#id('a), #id('b)),
+      #scope(#block(#[ ],
+                    #[#postinc(#id('b)),
+                    #gadd(#id('b), #id('a))]))),
+  #call(#id('printf), #[#val("hi!!")])]
+{a} {a} {a}
+{a} {a} {a}
+{a} {a} {a}
+{a} {a} {a}
+{a} {a} 
+[
+    aa
+    [
+        b
+        b
+        b
+        b
+        [
+            c
+            c
+            c
+            [
+                d
+                d
+                
+            ] 4
+            c
+            c
+            c
+            
+        ] 3
+        b
+        b
+        b
+        
+    ] 2
+    [
+        xa
+        xb
+        [
+            yc
+            yd
+            
+        ] 3
+        xe
+        
+    ] 2
+    
+] 1
+
+count: 0

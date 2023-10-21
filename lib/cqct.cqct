@@ -1,0 +1,76 @@
+cqct = @names c32le {
+	typedef
+	enum Rkind
+	{
+		Rundef, /* undefined representation */
+		Ru08le, /*  8-bit unsigned little endian */
+		Ru16le, /* 16-bit unsigned little endian */
+		Ru32le, /* 32-bit unsigned little endian */
+		Ru64le, /* 64-bit unsigned little endian */
+		Rs08le, /*  8-bit signed little endian */
+		Rs16le, /* 16-bit signed little endian */
+		Rs32le, /* 32-bit signed little endian */
+		Rs64le, /* 64-bit signed little endian */
+		Ru08be, /*  8-bit unsigned big endian */
+		Ru16be, /* 16-bit unsigned big endian */
+		Ru32be, /* 32-bit unsigned big endian */
+		Ru64be, /* 64-bit unsigned big endian */
+		Rs08be, /*  8-bit signed big endian */
+		Rs16be, /* 16-bit signed big endian */
+		Rs32be, /* 32-bit signed big endian */
+		Rs64be, /* 64-bit signed big endian */
+		Rf32,   /* 32-bit floating point */
+		Rf64,   /* 64-bit floating point */
+		Rf96,   /* 96-bit floating point */
+		Rf128,  /* 128-bit floating point */
+		Rx64,   /* 64-bit complex floating point */
+		Rx128,  /* 128-bit complex floating point */
+		Rx192,  /* 192-bit complex floating point */
+		Rnrep,  /* number of representations */
+	} Rkind;
+
+	typedef
+	enum Cbase
+	{
+		Vundef=0,
+		Vlo,
+		Vbool=Vlo,
+		Vchar,
+		Vshort,
+		Vint,
+		Vlong,
+		Vvlong,
+		Vuchar,
+		Vushort,
+		Vuint,
+		Vulong,
+		Vuvlong,
+		Vfloat,
+		Vdouble,
+		Vlongdouble,
+		Vcomplex,
+		Vdoublex,
+		Vlongdoublex,
+		Vnbase,
+		Vptr = Vnbase,		/* alias for some other base type */
+		Vvoid,
+		Vnallbase,
+	} Cbase;
+
+	typedef
+	enum Tkind
+	{
+		Tvoid=0,
+		Tbase,
+		Tstruct,
+		Tunion,
+		Tenum,
+		Tptr,
+		Tarr,
+		Tfun,
+		Ttypedef,
+		Tbitfield,
+		Tconst,
+		Tundef,
+	} Tkind;
+};

@@ -1,0 +1,622 @@
+#!/bin/bash
+	exec l1 -e main "$0" "$@"
+	exit 1
+!#
+@include <ns9p.cqct>   /* Diru */
+@include <sctl.cqct>
+@include <sctlns.cqct>
+
+@global nsid2path;
+@global path2nsid;
+@global nsid2ns;
+@global prefix;
+@global vars;
+@global index;
+@global history;
+@global rootns;
+@global mode;
+
+main = @lambda(progname, args ...) {
+	@local notimpl, botch, mkreply;
+	@local tnames, tping, tversion, tlooktype;
+	@local tenumtype, tlooksym, tenumsym, tlookaddr;
+	@local tunwind1, tnsinfo, tlooksrc, tlookpc;
+	@local tenumloc, handle, tdispatch, remember;
+	@local record, bindns, opennsnames, opennssctl;
+	@local looknsid, inner_main, watchdog, port;
+
+/*
+sns = @names clp64be {
+	typedef short unsigned int sa_family_t;
+	typedef uint16 in_port_t;
+	typedef uint32 in_addr_t;
+
+	struct in_addr {
+		@0x0	in_addr_t s_addr;
+		@0x4;
+	};
+
+	struct sockaddr_in {
+		@0x0	sa_family_t sin_family;
+		@0x2	in_port_t sin_port;
+		@0x4	struct in_addr sin_addr;
+		@0x8	unsigned char sin_zero[0x8];
+		@0x10;
+	};
+};
+*/
+
+/*
+@define fmtsa(sa)
+{
+	@local p;
+	sa = (struct sns`sockaddr_in*)sa;
+	p = (uint8*)&sa->sin_addr.s_addr;
+	return sprintfa("%u.%u.%u.%u:%u",
+			p[0], p[1], p[2], p[3],
+			sa->sin_port);
+}
+*/
+
+@define notimpl(fd, msg, dat)
+{
+	sctlrerror(fd, msg->tag,
+		   "server does not support %e", (sctl`Mkind)msg->op);
+	return 'badop;
+}
+
+@define botch(fd, tag)
+{
+	sctlrerror(fd, tag, "protocol botched");
+	return 'badop;
+}
+
+@define mkreply(op, tag)
+{
+	@local m, p;
+	m = p = mkxs();
+	p = (sctl`Msg*)p;
+	p->op = op;
+	p->tag = tag;
+	p++;
+	return [ m, (char*)p ];
+}
+
+@define tnames(fd, tag, dat)
+{
+	@local p, m, nsid;
+	@local q, path;
+
+	q = dat;
+	[path, q] = decodes(q);
+
+	nsid = openns(prefix+path);
+	if(nsid == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rnames, tag);
+	p = (uint64*)p;
+	*p++ = nsid;
+	sendsctlmsg(fd, m, (char*)p-m);
+	return 'ok;
+}
+
+@define tping(fd, tag, dat)
+{
+	@local p, m;
+
+	[m, p] = mkreply(sctl`Rnames, tag);
+	p = (uint64*)p;
+	*p++ = length(dat);
+	sendsctlmsg(fd, m, (char*)p-m);
+	return 'ok;
+}
+
+@define tversion(fd, tag, dat)
+{
+	@local p, m, s;
+	s = split(dat, ":");
+	if(length(s) < 1){
+		botch(fd, tag);
+		return 'badop;
+	}
+	if(s[0] != "sctl-2013"){
+		sctlrerror(fd, tag, "unsupported version");
+		return 'badop;
+	}
+	if(length(s) != 2){
+		botch(fd, tag);
+		return 'badop;
+	}
+	[m, p] = mkreply(sctl`Rversion, tag);
+	p = (char*)p;
+	putbytes(p, dat);
+	p += length(dat);
+	sendsctlmsg(fd, m, (char*)p-m);
+	return 'ok;
+}
+
+@define tlooktype(fd, tag, dat)
+{
+	@local p, m, nsid, tn, ns, td;
+	p = (uint64*)dat;
+	nsid = *p++;
+	[tn, p] = decodetname(p);
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+	td = ns.looktype(tn);
+	if(td == nil){
+       		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rlooktype, tag);
+	p = encodetdef(p, td);
+	sendsctlmsg(fd, m, (char*)p-m);
+	return 'ok;
+}
+
+@define tenumtype(fd, tag, dat)
+{
+	@local p, m, nsid, ns, ts, nt;
+	p = (uint64*)dat;
+	nsid = *p++;
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+	ts = ns.enumtype();
+	nt = length(ts);
+	[m, p] = mkreply(sctl`Renumtype, tag);
+	p = (uint64*)p;
+	*p++ = nt;
+	foreach(@lambda(tn, td){ p = encodetdef(p, td); }, ts);
+	sendsctlmsg(fd, m, (char*)p-m);
+	return 'ok;
+}
+
+@define tlooksym(fd, tag, dat)
+{
+	@local p, m, nsid, id, ns, sym;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	[id, p] = decodes(p);
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+	sym = looksym(ns, mkcid(id));
+	if(sym == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+
+	[m, p] = mkreply(sctl`Rlooksym, tag);
+	p = encodesym(p, sym);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tenumsym(fd, tag, dat)
+{
+	@local p, m, nsid, ns, n, ss;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	ss = ns.enumsym();
+	n = length(ss);
+	[m, p] = mkreply(sctl`Renumsym, tag);
+	p = (uint64*)p;
+	*p++ = n;
+	foreach(@lambda(id, sym) { p = encodesym(p, sym); }, ss);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tlookaddr(fd, tag, dat)
+{
+	@local p, m, nsid, ns, addr, sym;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	addr = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+	sym = ns.lookaddr(addr);
+	if(sym == nil){
+       		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rlookaddr, tag);
+	p = encodesym(p, sym);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tunwind1(fd, tag, dat)
+{
+	@local m, p, nsid, pc, ns, rs;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	pc = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	rs = ns.unwind1(pc);
+	if(rs == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Runwind1, tag);
+	p = encodeuwrules(p, rs);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tnsinfo(fd, tag, dat)
+{
+	@local m, p, nsid, ns, rs;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	rs = ns.nsinfo();
+	if(rs == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rnsinfo, tag);
+	p = encodensinfo(p, rs);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tlooksrc(fd, tag, dat)
+{
+	@local m, p, nsid, addr, ns, src;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	addr = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	src = ns.looksrc(addr);
+	if(src == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rlooksrc, tag);
+	p = encodesrc(p, src);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tlookpc(fd, tag, dat)
+{
+	@local m, p, nsid, file, line, ns, addr;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	[file, p] = decodes(p);
+	p = (uint32*)p;
+	line = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	addr = ns.lookpc(file, line);
+	if(addr == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+	[m, p] = mkreply(sctl`Rlookpc, tag);
+	p = (uint64*)p;
+	*p++ = addr;
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+@define tenumloc(fd, tag, dat)
+{
+	@local m, p, nsid, pc, ns, ls;
+
+	p = (uint64*)dat;
+	nsid = *p++;
+	pc = *p++;
+
+	ns = looknsid(nsid);
+	if(ns == nil){
+		sctlrerror(fd, tag, "unknown name space");
+		return 'ok;
+	}
+
+	ls = ns.enumloc(pc);
+	if(ls == nil){
+		sctlrerror(fd, tag, Enone);
+		return 'ok;
+	}
+
+	[m, p] = mkreply(sctl`Renumloc, tag);
+	p = (uint64*)p;
+	*p++ = length(ls);
+	foreach(@lambda(l){
+			p = encodes(p, cid2str(l.id));
+			p = encodetname(p, l.type);
+			p = (uint8*)p;
+			*p++ = l.ltype;
+			p = encodelexpr(p, l.loc);
+		}, ls);
+	sendsctlmsg(fd, m, (char*)p-(char*)m);
+	return 'ok;
+}
+
+/* FIXME: resolve issues in equivalence that led us to
+   explicitly unify types of handle keys */
+handle = [
+	(sctl`Mkind)sctl`Tversion  : tversion,
+	(sctl`Mkind)sctl`Tping     : tping,
+	(sctl`Mkind)sctl`Tps       : notimpl,
+	(sctl`Mkind)sctl`Tlaunch   : notimpl,
+	(sctl`Mkind)sctl`Tattach   : notimpl,
+	(sctl`Mkind)sctl`Tstat     : notimpl,
+	(sctl`Mkind)sctl`Tcont     : notimpl,
+	(sctl`Mkind)sctl`Tstop     : notimpl,
+	(sctl`Mkind)sctl`Tstep     : notimpl,
+	(sctl`Mkind)sctl`Tsnap     : notimpl,
+	(sctl`Mkind)sctl`Tkill     : notimpl,
+	(sctl`Mkind)sctl`Tdetach   : notimpl,
+	(sctl`Mkind)sctl`Ttrace    : notimpl,
+	(sctl`Mkind)sctl`Tsettrap  : notimpl,
+	(sctl`Mkind)sctl`Tclrtrap  : notimpl,
+	(sctl`Mkind)sctl`Tgetctx   : notimpl,
+	(sctl`Mkind)sctl`Tsetctx   : notimpl,
+	(sctl`Mkind)sctl`Tread     : notimpl,
+	(sctl`Mkind)sctl`Twrite    : notimpl,
+	(sctl`Mkind)sctl`Tlooksym  : tlooksym,
+	(sctl`Mkind)sctl`Tenumsym  : tenumsym,
+	(sctl`Mkind)sctl`Tlooktype : tlooktype,
+	(sctl`Mkind)sctl`Tenumtype : tenumtype,
+	(sctl`Mkind)sctl`Tlookaddr : tlookaddr,
+	(sctl`Mkind)sctl`Tenumloc  : tenumloc,
+	(sctl`Mkind)sctl`Tunwind1  : tunwind1,
+	(sctl`Mkind)sctl`Tlooksrc  : tlooksrc,
+	(sctl`Mkind)sctl`Tlookpc   : tlookpc,
+	(sctl`Mkind)sctl`Tenumseg  : notimpl,
+	(sctl`Mkind)sctl`Tnames    : tnames,
+	(sctl`Mkind)sctl`Tnsinfo   : tnsinfo,
+];
+
+@define tdispatch(fd)
+{
+	@local msg, tag, dat, fn;
+	[msg, tag, dat] = recvsctlmsg(fd);
+	if(msg == nil)
+		return dat;
+	fn = handle[(sctl`Mkind)msg];
+	if(fn == nil)
+		return 'badop;
+	return fn(fd, tag, dat);
+}
+
+@define remember()
+{
+	@local s;
+	if(!access(history, "r"))
+		return;
+	s = mapfile(history);
+	foreach(@lambda(l){
+			@local vs;
+			vs = split(l, " ");
+			nsid2path[(uint64)strton(vs[0])] = vs[1];
+		}, split(s, "\n"));
+}
+
+@define record()
+{
+	@local fd;
+	fd = open(history, "w");
+	foreach(@lambda(nsid, path){
+			fprintf(fd, "%u %s\n", nsid, path);
+		}, nsid2path);
+	close(fd);
+}
+
+@define bindns(id, path, ns)
+{
+	nsid2ns[id] = ns;
+	path2nsid[path] = id;
+	nsid2path[(uint64)id] = path;
+	record();
+}
+
+@define opennsnames(path)
+{
+	@local id, s, a, nc, st;
+	id = path2nsid[path];
+	if(id)
+		return id;
+	if(!access(path, "r"))
+		return nil;
+	st = (ns9p`Diru*)stat(path);
+	s = "@lambda(";
+	a = "}(";
+	nc = 1;
+	foreach(@lambda(v) {
+			@local fmts, fmta;
+			if(nc){
+				nc = 0;
+				fmts = "%s";
+				fmta = "%u";
+			}else{
+				fmts = ", %s";
+				fmta = ", %u";
+			}
+			s += sprintfa(fmts, v);
+			a += sprintfa(fmta, 0);
+		}, vars);
+	s += "){\n";
+	a += ");\n";
+	s += sprintfa("\t@names %s { @include \"%s\" };\n", rootns, path);
+	s += a;
+//	printf("evaluating ...\n%s\n", s);
+	evalk(s,
+	      @lambda(ns){
+		      id = st->qid.path;
+		      bindns(id, path, ns);
+		      return id;
+	      },
+	      @lambda(){ return nil; });
+}
+
+@global nextid;
+nextid = 0;
+
+@define opennssctl(path)
+{
+	@local id, ns;
+	printf("snames: sctl names for %s\n", path);
+	id = path2nsid[path];
+	if(id)
+		return id;
+	printf("snames: fresh sctl for %s\n", path);
+	ns = atnames(path);
+	if(ns == nil)
+		return nil;
+	id = ++nextid;
+	bindns(id, path, ns);
+	return id;
+}
+
+@global openns;
+
+@define looknsid(nsid)
+{
+	@local ns, path;
+	ns = nsid2ns[nsid];
+	if(ns)
+		return ns;
+	path = nsid2path[nsid];
+	if(path){
+		openns(path);
+		ns = nsid2ns[nsid]; /* maybe nil */
+	}
+	return nil;
+}
+
+@define inner_main(port, pref, vs)
+{
+	@local lfd, fd, fds, rs, x;
+	lfd = tcplisten(sprintfa(":%u", port));
+	fds = [ lfd ];
+	path2nsid = [:];
+	nsid2ns = [:];
+	nsid2path = [:];
+	history = "/tmp/snames."+getenv("USER");
+	remember();
+	prefix = pref;
+	vars = vs;
+	if(length(prefix) && prefix[strlen(prefix)-1] != '/')
+		prefix += "/";
+	while(1){
+		[rs, _, _] = select(fds, [], []);
+		foreach(@lambda(r){
+				if(r == lfd){
+					fd = tcpaccept(lfd);
+//					printf("accepted connection from ");
+//					printf("%s\n", getpeername(fd));
+					append(fds, fd);
+					return;
+				}
+				switch(x = tdispatch(r)){
+				case 'closed:
+//					printf("closing %s\n", getpeername(r));
+					close(r);
+					delete(fds, r);
+					break;
+				case 'badop:
+//					printf("bad op!\n");
+					close(r);
+					delete(fds, r);
+					break;
+				case 'ok:
+					break;
+				default:
+					printf("??tdispatch?? %a\n", x);
+					break;
+				}
+			}, rs);
+	}
+}
+
+@define watchdog(fn)
+{
+	@local pid, s;
+	while(1){
+		pid = fork();
+		if(pid == 0){
+			fn();
+			exit(1);
+		}
+		[_, s] = waitpid(pid, 0);
+		printf("pid has failed (status=%x) ... restarting\n", s);
+	}
+}
+
+if(length(args) < 4){
+	printf("usage: %s PORT ROOTNS MODE PREFIX [VAR ...] \n", progname);
+	exit(1);
+}
+
+//pop(args);
+port = strton(pop(args));
+rootns = pop(args);
+mode = pop(args);
+prefix = pop(args);
+if(mode == "sctl")
+	openns = opennssctl;
+else if(mode == "names")
+	openns = opennsnames;
+else{
+	printf("%s: mode must be \"sctl\" or \"names\"\n", progname);
+	exit(1);
+}
+
+watchdog(@lambda(){ inner_main(port, prefix, args); });
+
+};
+

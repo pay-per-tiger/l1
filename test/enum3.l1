@@ -1,0 +1,79 @@
+@define listref(l, i){
+	if(i == 0)
+		return car(l);
+	else
+		return listref(cdr(l), i-1);
+}
+
+@define mkzas(len){
+	@local dispatch, str;
+	str = mkstr(len);
+	@define dispatch(args ...) {
+		@local arg, range, new, beg, end;
+		arg = listref(args, 1);
+
+		if(arg == "get"){
+			range = listref(args, 2);
+			beg = rangebeg(range);
+			end = beg+rangelen(range);
+			printf("get %x %x\n", beg, end);
+			return substr(str, beg, end);
+		}
+
+		if(arg == "put"){
+			range = listref(args, 2);
+			beg = rangebeg(range);
+			end = beg+rangelen(range);
+			new = listref(args, 3);
+			strput(str, beg, new);
+			printf("put %x %x\n", beg, end);
+			return;
+		}
+
+		printf("bad argument to dispatch!\n");
+	}
+	return mkas([ 'dispatch : dispatch ]);
+}
+
+ns = @names c32le {
+	enum e {
+		x = 4,
+		y,
+		z,
+		a = 0,
+		b,
+		c,
+	};
+	enum f {
+		xx=1ULL,
+	};
+};
+
+dom = mkdom(ns, mkzas(1024));
+for(x = -1; x < 7; x++){
+	switch(x){
+	case dom`x:
+		printf("dom`x = %d\n", x);
+		break;
+	case dom`y:
+		printf("dom`y = %d\n", x);
+		break;
+	case dom`z:
+		printf("dom`z = %d\n", x);
+		break;
+	case dom`a:
+		printf("dom`a = %d\n", x);
+		break;
+	case dom`b:
+		printf("dom`b = %d\n", x);
+		break;
+	case dom`c:
+		printf("dom`c = %d\n", x);
+		break;
+	default:
+		printf("unmatched %d\n", x);
+		break;
+	}
+}
+
+printf("%d\n", sizeof(enum dom`f));

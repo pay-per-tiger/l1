@@ -1,0 +1,1064 @@
+// convenient syscall wrappers
+// that offer semantics that closely
+// resemble the low-level semantics
+// available in C programs through
+// libc and friends.
+
+@global sys_defined;
+if(sys_defined == nil)
+{
+@local _unameres;
+@local ___malloc;
+
+@global unix;
+
+sys_defined = 1;
+
+_unameres = nil;
+
+@include <darwin-x86_64.cqct>
+@include <darwin-arm64.cqct>
+@include <linux-x86_64.cqct>
+@include <linux-x86.cqct>
+@include <linux-arm.cqct>
+@include <linux-aarch64.cqct>
+
+{
+	@local u,r,a,o,w;
+
+	u=uname();
+	o=u[0];
+	a=u[3];
+
+	r=myrootns();
+	w=sizeof(r`long);
+
+	switch([o,a,w]) {
+	case ["Linux","x86_64",8]:
+		unix = unix_linux_x86_64;
+		break;
+	case ["Linux","x86_64",4]:
+		unix = unix_linux_x86;
+		break;
+	case ["Linux","i686",4]:
+		unix = unix_linux_x86;
+		break;
+	case ["Linux","armv7l",4]:
+	case ["Linux","armv6l",4]:
+		unix = unix_linux_arm;
+		break;
+	case ["Linux", "aarch64", 8]:
+		unix = unix_linux_aarch64;
+		break;
+	case ["Darwin","x86_64",8]:
+		// support for you included above
+		unix = unix_darwin_x86_64;
+		break;
+	case ["Darwin","arm64",8]:
+		// support for you included above
+		unix = unix_darwin_arm64;
+		break;
+	case ["Darwin","x86_64",4]:
+		// running 32 bit on a 64 bit kernel
+	default:
+		error("no direct syscalls for OS: %a\n", [o, a, w]);
+	}
+
+	@define ___malloc(s) {
+		@local b;
+		b = _malloc(s);
+		if(b) {
+			return (unsigned char *){mkdom(r,mkmas(b, s))}b;
+		} else {
+			return b;
+		}
+	}
+
+	_unameres = u;
+};
+
+@global sys_open;
+@define sys_open(filename,oflag,rest ...) {
+	@local m,r;
+
+	m=___malloc(length(filename)+1);
+	if(!m) {
+		return -1;
+	}
+
+	putbytes(m,filename);
+	m[length(filename)]=0;
+
+	if(oflag & unix`O_CREAT) {
+		if(unix`openat) {
+			r = syscall(unix`openat, unix`AT_FDCWD, m,oflag,rest[0]);
+		} else {
+			r=syscall(unix`open,m,oflag,rest[0]);
+		}
+	} else {
+		if(unix`openat) {
+			r = syscall(unix`openat, unix`AT_FDCWD, m,oflag);
+		} else {
+			r=syscall(unix`open,m,oflag);
+		}
+	}
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_close;
+@define sys_close(fd) {
+	syscall(unix`close,fd);
+}
+
+@global sys_read;
+@define sys_read(fd, buf, len) {
+	@local m, r, c;
+
+	m=___malloc(len);
+	if(!m) {
+		return -1;
+	}
+
+	r=syscall(unix`read, fd, m, len);
+	if(r > 0) {
+		if(isstring(buf)) {
+			c = getbytes(m, r);
+			strput(buf, 0, c);
+		} else {
+			c = getbytes(m, r);
+			putbytes(buf, c);
+		}
+	}
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_write;
+@define sys_write(fd, buf, len) {
+	@local m, r;
+
+	m=___malloc(len);
+
+	if(!m) {
+		return -1;
+	}
+
+	if(isstring(buf)) {
+		if(length(buf) > len) {
+			putbytes(m, substr(buf, 0, len));
+		} else {
+			putbytes(m, buf);
+		}
+	} else {
+		memcpy(m, buf, len);
+	}
+
+	r=syscall(unix`write, fd, m, len);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_lseek;
+@define sys_lseek(fd,pos,whence) {
+	@local r;
+
+	r=syscall(unix`lseek,fd,pos,whence);
+
+	return r;
+}
+
+@global sys_ioctl;
+@define sys_ioctl(fd,req,data) {
+	@local r;
+
+	r=syscall(unix`ioctl,fd,req,data);
+
+	return r;
+}
+
+@global sys_dup2;
+@define sys_dup2(fd1,fd2) {
+
+	return syscall(unix`dup2,fd1,fd2);
+}
+
+@global S_ISREG;
+@define S_ISREG(st_mode) {
+	return ( (st_mode & unix`S_IFREG) == unix`S_IFREG) ? 1 : 0;
+}
+
+@global S_ISDIR;
+@define S_ISDIR(st_mode) {
+	return ( (st_mode & unix`S_IFDIR) == unix`S_IFDIR) ? 1 : 0;
+}
+
+@global S_ISCHR;
+@define S_ISCHR(st_mode) {
+	return ( (st_mode & unix`S_IFCHR) == unix`S_IFCHR) ? 1 : 0;
+}
+
+@global S_ISBLK;
+@define S_ISBLK(st_mode) {
+	return ( (st_mode & unix`S_IFBLK) == unix`S_IFBLK) ? 1 : 0;
+}
+
+@global S_ISFIFO;
+@define S_ISFIFO(st_mode) {
+	return ( (st_mode & unix`S_IFIFO) == unix`S_IFIFO) ? 1 : 0;
+}
+
+@global S_ISLNK;
+@define S_ISLNK(st_mode) {
+	return ( (st_mode & unix`S_IFLNK) == unix`S_IFLNK) ? 1 : 0;
+}
+
+@global S_ISSOCK;
+@define S_ISSOCK(st_mode) {
+	return ( (st_mode & unix`S_IFSOCK) == unix`S_IFSOCK) ? 1 : 0;
+}
+
+{
+@local _fstat, _stat, _lstat;
+
+if (unix.looksym('fstat64) != nil)
+{
+	_fstat = @lambda(fd, m) { syscall(unix`fstat64, fd, m); };
+} else if (unix.looksym('fstat) != nil) {
+	_fstat = @lambda(fd, m) { syscall(unix`fstat, fd, m); };
+} else {
+	_fstat = @lambda(a...) { error("No fstat system call found!"); };
+}
+
+if (unix.looksym('stat64) != nil)
+{
+	_stat = @lambda(path, m) { syscall(unix`stat64, path, m); };
+} else if (unix.looksym('fstat) != nil) {
+	_stat = @lambda(path, m) { syscall(unix`stat, path, m); };
+} else {
+	_stat = @lambda(a...) { error("No stat system call found!"); };
+}
+
+if (unix.looksym('lstat64) != nil)
+{
+	_lstat = @lambda(path, m) { syscall(unix`lstat64, path, m); };
+} else if (unix.looksym('fstat) != nil) {
+	_lstat = @lambda(path, m) { syscall(unix`lstat, path, m); };
+} else {
+	_lstat = @lambda(a...) { error("No lstat system call found!"); };
+}
+
+@global sys_fstat;
+@define sys_fstat(fd, statbuf) {
+	@local m,r,l;
+
+	if(unix.looksym('fstat64)) {
+		l=sizeof(struct unix`stat64);
+	} else {
+		l=sizeof(struct unix`stat);
+	}
+
+	m=___malloc(l);
+	if(0 >= m)
+		error("fstat: couldn't allocate stat buf");
+
+	if(isstring(statbuf)) {
+		if(length(statbuf) > l) {
+			putbytes(m,substr(statbuf,0,l));
+		} else {
+			putbytes(m,statbuf);
+		}
+		//if sl < l it will be caught by the below putbytes
+	} else {
+		memcpy(m,statbuf,l);
+	}
+
+	r=_fstat(fd,m);
+
+	//m=(struct unix`stat *)m;
+
+	if(!r) {
+		putbytes(statbuf,getbytes(m,l));
+	}
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_stat;
+@define sys_stat(path, statbuf) {
+	@local m, r, l, p;
+
+	if(isstring(path)) {
+		p = ___malloc(length(path) + 1);
+		putbytes(p, path);
+	} else {
+		p = ___malloc(strlen(path) + 1);
+		memcpy(p, path, strlen(path));
+	}
+
+	if(unix.looksym('fstat64)) {
+		l=sizeof(struct unix`stat64);
+	} else {
+		l=sizeof(struct unix`stat);
+	}
+
+	m=___malloc(l);
+	if(0 >= m)
+		error("stat: couldn't allocate stat buf");
+
+	if(isstring(statbuf)) {
+		if(length(statbuf) > l) {
+			putbytes(m,substr(statbuf,0,l));
+		} else {
+			putbytes(m,statbuf);
+		}
+		//if sl < l it will be caught by the below putbytes
+	} else {
+		memcpy(m,statbuf,l);
+	}
+
+	r=_stat(p, m);
+
+	//m=(struct unix`stat *)m;
+
+	if(!r) {
+		putbytes(statbuf,getbytes(m,l));
+	}
+
+	_free(m);
+	_free(p);
+
+	return r;
+}
+
+@global sys_lstat;
+@define sys_lstat(path, statbuf) {
+	@local m, r, l, p;
+
+	if(isstring(path)) {
+		p = ___malloc(length(path) + 1);
+		putbytes(p, path);
+	} else {
+		p = ___malloc(strlen(path) + 1);
+		memcpy(p, path, strlen(path));
+	}
+
+	if(unix.looksym('fstat64)) {
+		l=sizeof(struct unix`stat64);
+	} else {
+		l=sizeof(struct unix`stat);
+	}
+
+	m=___malloc(l);
+	if(0 >= m)
+		error("lstat: couldn't allocate stat buf");
+
+	if(isstring(statbuf)) {
+		if(length(statbuf) > l) {
+			putbytes(m,substr(statbuf,0,l));
+		} else {
+			putbytes(m,statbuf);
+		}
+		//if sl < l it will be caught by the below putbytes
+	} else {
+		memcpy(m,statbuf,l);
+	}
+
+	r=_lstat(p, m);
+
+	//m=(struct unix`stat *)m;
+
+	if(!r) {
+		putbytes(statbuf,getbytes(m,l));
+	}
+
+	_free(m);
+	_free(p);
+
+	return r;
+}
+
+}
+
+@global sys_chdir;
+@define sys_chdir(dirname) {
+	@local m,r;
+
+	m=___malloc(length(dirname)+1);
+	if(!m) {
+		return -1;
+	}
+
+	putbytes(m,dirname);
+	m[length(dirname)]=0;
+
+	r=syscall(unix`chdir, m);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_chroot;
+@define sys_chroot(dirname) {
+	@local m,r;
+
+	m=___malloc(length(dirname)+1);
+	if(!m) {
+		return -1;
+	}
+
+	putbytes(m,dirname);
+	m[length(dirname)]=0;
+
+	r=syscall(unix`chroot, m);
+
+	_free(m);
+
+	return r;
+}
+
+@global FD_ALLOC;
+@define FD_ALLOC() {
+	return ___malloc(128);
+}
+
+@global FD_FREE;
+@define FD_FREE(fd) {
+	_free(fd);
+}
+
+@global FD_ISSET;
+@define FD_ISSET(fd,set) {
+	@local bit,byte;
+	byte=(fd)>>3;
+	bit=1<<(fd - (byte*8));
+	if(set[byte]&bit) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+@global FD_SET;
+@define FD_SET(fd,set) {
+	@local bit,byte;
+	byte=(fd)>>3;
+	bit=1<<(fd - (byte*8));
+	set[byte]|=bit;
+}
+
+@global sys_pselect;
+@global sys_select;
+@global selnr;
+selnr=nil;
+if(looksym(unix,'select)) {
+	selnr=unix`select;
+} else if(looksym(unix,'_newselect)) {
+	selnr=unix`_newselect;
+}
+if(selnr) {
+@define sys_pselect(n,rfds,wfds,xfds,timeout,sigmask) {
+	@local rfds_foo,wfds_foo,xfds_foo,timeout_foo,r,x,rr,rw,rx;
+	@local maxbyte;
+
+	rfds_foo=FD_ALLOC();
+	if(!rfds_foo)
+		return -1;
+	wfds_foo=FD_ALLOC();
+	if(!wfds_foo) {
+		_free(rfds_foo);
+		return -1;
+	}
+	xfds_foo=FD_ALLOC();
+	if(!xfds_foo) {
+		_free(rfds_foo);
+		_free(wfds_foo);
+		return -1;
+	}
+
+	maxbyte=n>>3;
+	for(x=0;x<=maxbyte;x++) {
+		rfds_foo[x]=0;
+		wfds_foo[x]=0;
+		xfds_foo[x]=0;
+	}
+
+	if(timeout != 0) {
+		timeout_foo=___malloc(128);
+		if(!timeout_foo) {
+			_free(rfds_foo);
+			_free(wfds_foo);
+			_free(xfds_foo);
+			return -1;
+		}
+		timeout_foo[0]=0;
+		timeout_foo[1]=0;
+		timeout_foo[2]=0;
+		timeout_foo[3]=0;
+		timeout_foo[4]=0;
+		timeout_foo[5]=0;
+		timeout_foo[6]=0;
+		timeout_foo[7]=0;
+	} else {
+		timeout_foo=(unix`unsigned char *)0;
+	}
+
+	foreach(@lambda(v) {
+		FD_SET(v,rfds_foo);
+	},rfds);
+	foreach(@lambda(v) {
+		FD_SET(v,wfds_foo);
+	},wfds);
+	foreach(@lambda(v) {
+		FD_SET(v,xfds_foo);
+	},xfds);
+
+	r=syscall(selnr,n,rfds_foo,wfds_foo,xfds_foo,timeout_foo);
+
+	if(r==-1) {
+		FD_FREE(rfds_foo);
+		FD_FREE(wfds_foo);
+		FD_FREE(xfds_foo);
+		if(timeout_foo) _free(timeout_foo);
+
+		//return [[],[],[]];
+		return -1;
+	}
+
+	rr=[];
+	foreach(@lambda(v) {
+		if(FD_ISSET(v,rfds_foo)) {
+			append(rr,v);
+		}
+	},rfds);
+	rw=[];
+	foreach(@lambda(v) {
+		if(FD_ISSET(v,wfds_foo)) {
+			append(rw,v);
+		}
+	},wfds);
+	rx=[];
+	foreach(@lambda(v) {
+		if(FD_ISSET(v,xfds_foo)) {
+			append(rx,v);
+		}
+	},xfds);
+
+	FD_FREE(rfds_foo);
+	FD_FREE(wfds_foo);
+	FD_FREE(xfds_foo);
+	if(timeout_foo) _free(timeout_foo);
+
+	return [rr,rw,rx];
+}
+
+@define sys_select(n,rfds,wfds,xfds,timeout) {
+	return sys_pselect(n,rfds,wfds,xfds,timeout,0);
+}
+}
+
+@global sys_access;
+@define sys_access(path, amode) {
+	@local m,r;
+
+	m=___malloc(length(path)+1);
+	if(!m) {
+		return -1;
+	}
+
+	putbytes(m,path);
+	m[length(path)]=0;
+
+
+	if(looksym(unix,'faccessat)) {
+		r = syscall(unix`faccessat, unix`AT_FDCWD, m, amode, 0);
+	} else {
+		r = syscall(unix`access, m, amode);
+	}
+
+	_free(m);
+
+	return r;
+}
+
+
+@global sys_unlink;
+@define sys_unlink(filename) {
+	@local m, r;
+
+	m=___malloc(length(filename)+1);
+	putbytes(m,filename);
+	m[length(filename)]=0;
+
+	r = syscall(unix`unlink,m);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_mmap;
+if(unix.looksym('mmap2)) {
+	// some linuxes don't support old mmap anymore
+	@define sys_mmap(addr,length,prot,flags,fd,offset) {
+		return (unix`void *)syscall(unix`mmap2,addr,length,prot,
+						flags,fd,offset>>12);
+	}
+} else {
+	@define sys_mmap(addr,length,prot,flags,fd,offset) {
+		return (unix`void *)syscall(unix`mmap,addr,length,prot,flags,
+						fd,offset);
+	}
+}
+
+@global sys_msync;
+@define sys_msync(addr,size,flags) {
+
+	return syscall(unix`msync,addr,size,flags);
+}
+
+@global sys_munmap;
+@define sys_munmap(addr,length) {
+
+	return syscall(unix`munmap,addr,length);
+}
+
+@global sys_socket;
+@define sys_socket(domain,type,protocol) {
+
+	return syscall(unix`socket,domain,type,protocol);
+}
+
+@global sys_connect;
+@define sys_connect(fd,sockaddr,size) {
+	@local sa, r;
+
+	if(isnil(size)) {
+		size=sizeof(*sockaddr);
+	}
+	sa=___malloc(size);
+	if(!sa) return -1;
+
+	putbytes(sa,getbytes(sockaddr,size));
+
+	r = syscall(unix`connect,fd,sa,size);
+
+	_free(sa);
+
+	return r;
+}
+
+@global sys_bind;
+@define sys_bind(fd,sockaddr,size) {
+	@local sa, r;
+
+	if(isnil(size)) {
+		size=sizeof(*sockaddr);
+	}
+	sa=___malloc(size);
+	if(!sa) return -1;
+
+	putbytes(sa,getbytes(sockaddr,size));
+
+	r = syscall(unix`bind,fd,sa,size);
+
+	_free(sa);
+
+	return r;
+}
+
+@global sys_listen;
+@define sys_listen(fd,backlog) {
+
+	return syscall(unix`listen,fd,backlog);
+};
+
+@global sys_accept;
+@define sys_accept(fd,sockaddr,size) {
+	@local sa, ss, r;
+
+	if(isnil(size)) {
+		size=sizeof(*sockaddr);
+	} else {
+		size=*size;
+	}
+	sa=___malloc(size);
+	if(!sa) return -1;
+
+	putbytes(sa,getbytes(sockaddr,size));
+
+	ss=___malloc(sizeof(unix`int));
+	if(!ss) {
+		_free(sa);
+		return -1;
+	}
+
+	ss=(unix`int *)ss;
+
+	*ss=size;
+
+	r = syscall(unix`accept,fd,sa,ss);
+
+	_free(sa);
+	_free(ss);
+
+	return r;
+}
+
+@global sys_getsockname;
+@define sys_getsockname(fd,sa,len) {
+	return syscall(unix`getsockname,fd,sa,len);
+}
+
+@global sys_setsockopt;
+@define sys_setsockopt(socket,level,option_name,option_value,option_len) {
+
+	return syscall(unix`setsockopt,socket,level,option_name,option_value,option_len);
+}
+
+/*
+ * Process calls
+ */
+
+@global sys_exit;
+@define sys_exit(status) {
+
+	syscall(unix`exit,status);
+}
+
+@global sys_fork;
+
+if(_unameres[0] == "Darwin") {
+
+@define sys_fork() {
+	@local r,p;
+
+	r=syscall(unix`fork);
+	p=sys_getpid();
+
+	if(0 > r) {
+		return r;
+	} else if(r == p) {
+		// this is the child.
+		return 0;
+	} else {
+		return r;
+	}
+}
+
+} else {
+
+@define sys_fork() {
+
+	syscall(unix`fork);
+}
+
+}
+
+@global sys_wait4;
+if(looksym(unix,'wait4)) {
+@define sys_wait4(pid,status,options,rusage) {
+
+	syscall(unix`wait4,pid,status,options,rusage);
+};
+}
+
+@global sys_getpid;
+@define sys_getpid() {
+
+	syscall(unix`getpid);
+}
+
+@global sys_getppid;
+@define sys_getppid() {
+
+	syscall(unix`getppid);
+}
+
+@global sys_getpgid;
+@define sys_getpgid(pid) {
+
+	syscall(unix`getpgid,pid);
+}
+
+@global sys_setpgid;
+@define sys_setpgid(pid,pgid) {
+
+	syscall(unix`setpgid,pid,pgid);
+}
+
+@global sys_setsid;
+@define sys_setsid() {
+
+	syscall(unix`setsid);
+}
+
+@global sys_sleep;
+@define sys_sleep(secs) {
+	@local r,m,m2;
+
+	m=___malloc(sizeof(struct unix`timespec));
+	if(!m)
+		return -1;
+	m=(struct unix`timespec *)m;
+	m->tv_sec=secs;
+	m->tv_nsec=0;
+
+	m2=___malloc(sizeof(struct unix`timespec));
+	if(!m2) {
+		_free(m);
+		return -1;
+	}
+	m2=(struct unix`timespec *)m2;
+
+	r = syscall(unix`nanosleep,m,m2);
+
+	if(!r) {
+		_free(m);
+		_free(m2);
+
+		return r;
+	} else {
+		r = m2->tv_sec;
+
+		_free(m);
+		_free(m2);
+
+		return r;
+	}
+}
+
+@global sys_reboot;
+@define sys_reboot(magic, magic2, cmd, arg) {
+	@local r;
+
+	r=syscall(unix`reboot, magic, magic2, cmd, arg);
+
+	return r;
+}
+
+@global sys_sched_getaffinity;
+@define sys_sched_getaffinity(pid, cpusetsize, mask) {
+	@local m,r;
+
+	m=___malloc(cpusetsize);
+	memset(m,0,cpusetsize);
+
+	r = syscall(unix`sched_getaffinity,pid,cpusetsize,m);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_sched_setaffinity;
+@define sys_sched_setaffinity(pid, cpusetsize, mask) {
+	@local m,r;
+
+	if(isstring(mask) && length(mask) <= cpusetsize) {
+		m=___malloc(cpusetsize);
+		putbytes(m,mask);
+	} else {
+		error("BAD MASK!\n");
+	}
+
+	r=syscall(unix`sched_setaffinity,pid,cpusetsize,m);
+
+	_free(m);
+
+	return r;
+}
+
+// MPOL_DEFAULT, MPOL_BIND, MPOL_INTERLEAVE or MPOL_PREFERRED. All modes except MPOL_DEFAULT
+
+@global sys_getmempolicy;
+@define sys_getmempolicy(mode, nodemask, maxnode,addr,flags) {
+	@local m,r;
+
+	if(isstring(nodemask)) {
+		m=___malloc(length(nodemask));
+		putbytes(m,nodemask);
+	} else {
+		error("nodemask should be a string");
+	}
+
+	r=syscall(unix`get_mempolicy,mode, m, maxnode, addr, flags);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_setmempolicy;
+@define sys_setmempolicy(mode, nodemask, maxnode) {
+	@local m,r;
+
+	if(isstring(nodemask)) {
+		m=___malloc(length(nodemask));
+		putbytes(m,nodemask);
+	} else {
+		error("nodemask should be a string");
+	}
+
+	r=syscall(unix`get_setpolicy,mode, m, maxnode);
+
+	_free(m);
+
+	return r;
+}
+
+@global sys_getuid;
+@define sys_getuid() {
+
+	return syscall(unix`getuid);
+}
+
+@global sys_geteuid;
+@define sys_geteuid() {
+
+	return syscall(unix`geteuid);
+}
+
+@global sys_setuid;
+@define sys_setuid(uid) {
+
+	return syscall(unix`setuid,uid);
+}
+
+@global sys_getgid;
+@define sys_getgid() {
+
+	return syscall(unix`getgid);
+}
+
+@global sys_getegid;
+@define sys_getegid() {
+
+	return syscall(unix`getegid);
+}
+
+@global sys_setgid;
+@define sys_setgid(gid) {
+
+	return syscall(unix`setgid,gid);
+}
+
+@global sys_kill;
+@define sys_kill(pid, sig) {
+
+	return syscall(unix`kill, pid, sig);
+}
+
+@global sys_execve;
+@define sys_execve(filename,argv,envp) {
+	@local f,fl,a,e, r;
+
+	if(iscvalue(filename) && isptr(@typeof(filename))) {
+		@local fl;
+
+		fl=strlen(filename);
+		f=___malloc(fl + 1);
+		putbytes(f,getbytes(filename,fl));
+		f[fl]=0;
+	} else if(isstring(filename)) {
+		fl=length(filename);
+		f=___malloc(fl+1);
+		putbytes(f,filename);
+		f[fl]=0;
+	} else {
+		error("filename must be a string or a cptr");
+	}
+
+	[a,e] = map(@lambda(ary) {
+		@local ret,i,len,strs;
+
+		len = sizeof(char *) * (length(ary)+1);
+		foreach(@lambda(v) {
+			if (isstring(v)) len += length(v)+1;
+			else len += sizeof(v);
+		},ary);
+		ret=(char **)___malloc(len);
+		strs = (char *)&ret[length(ary)+1];
+		for(i=0; i<length(ary); ++i) {
+			ret[i] = strs;
+			if (isstring(ary[i])) {
+				putbytes(strs,ary[i]);
+				strs+=length(ary[i]);
+				*strs = 0;
+				strs += 1;
+			} else {
+				@local v;
+				v = ary[i];
+				*{mkctype_ptr(@typeof(v),nsptr(nsof(v)))}strs = v;
+				strs += sizeof(ary[i]);
+			}
+		}
+		ret[i] = 0; //final null pointer (i == length(ary))
+		return ret;
+	}, [argv,envp]);
+
+	r = syscall(unix`execve,f,a,e);
+
+	_free(a);
+	_free(e);
+
+	return r;
+}
+
+@global sys_readlink;
+@define sys_readlink(path, buf, buflen) {
+	@local p, b, r;
+
+	if(iscvalue(buf) && isptr(@typeof(buf))) {
+	} else if(isstring(buf)) {
+		if(buflen > length(buf))
+			error("buflen exceeds length of string buf");
+	} else {
+		error("path must be a string or a cptr");
+	}
+
+	if(iscvalue(path) && isptr(@typeof(path))) {
+		@local pl;
+
+		pl = strlen(path);
+		p = ___malloc(pl + 1);
+		putbytes(p, getbytes(path, pl));
+		p[pl] = 0;
+	} else if(isstring(path)) {
+		@local pl;
+
+		pl = length(path);
+		p = ___malloc(pl + 1);
+		putbytes(p, path);
+		p[pl] = 0;
+	} else {
+		error("path must be a string or a cptr");
+	}
+
+	b = ___malloc(buflen);
+
+	r = syscall(unix`readlink, p, b, buflen);
+
+	if(r > 0) {
+		if(isstring(buf)) {
+			strput(buf, 0, getbytes(b, r));
+		} else {
+			putbytes(buf, getbytes(b, r));
+		}
+	}
+
+	_free(p);
+	_free(b);
+
+	return r;
+}
+};

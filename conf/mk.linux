@@ -1,0 +1,18 @@
+include conf/mk.unix
+
+L1C	+= elfheap.c
+
+l1: tl1 l1.heap
+	@echo + relink
+	$(V)objcopy  --add-section saveheap=l1.heap tl1 l1
+
+l1s: tl1s l1.heap
+	@echo + relink
+	$(V)objcopy  --add-section saveheap=l1.heap tl1s l1s
+
+# make clean if you are building libl1.so after building a non-pic target
+libl1.so: CFLAGS += -fPIC -nostdlib
+
+libl1.so: l1.o
+	@echo + ld $@
+	$(V)$(CC) -shared -Xlinker -Bsymbolic -o $@ $^

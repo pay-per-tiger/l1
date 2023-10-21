@@ -1,0 +1,64 @@
+
+//XXX needs documentation
+
+@defstx @expwithdom(dom,bdy) {
+	@local s;
+	s = gensym();
+	return #mcall(#id('with_imports), #[ #id('usedom) ],
+	              #scope(#block(#[ s ],
+	                     #[ #g(s,dom),
+	                     #call(#id('usedom),#[ s, #stxquote(bdy) ])
+	                     ]))
+	             );
+}
+
+@defstx @withdom(dom) bdy {
+	@local s;
+	s = gensym();
+	return #mcall(#id('with_imports), #[ #id('usedom) ],
+	              #scope(#block(#[ s ],
+	                     #[ #g(s,dom),
+	                        #call(#id('usedom),#[ s, #stxquote(bdy) ])
+	                      ]))
+	             );
+}
+
+//XXX error handling may need to be done better.
+@defstx @domrepl(dom) {
+	@local domsym;
+
+	domsym = gensym();
+
+	return #`{
+		@with_imports(usedom) {
+		@global #,domsym;
+		#,domsym = #,dom;
+
+		@defloc $loop()
+		{
+			@local s, v;
+			printf("`; ");
+			s = read(stdin, 1024);
+			if (s == nil) {
+				printf("\n");
+				currentreturn(nil);
+			}
+			v = parse(s, "(stdin)", 1);
+			v = usedom(#,domsym,v);
+			if (v != nil)
+				printf("%a\n",v);
+			$loop();
+		}
+
+		callcc(@lambda(done) {
+			@local oldreturn;
+			dynamicwind(
+				@lambda() {
+					oldreturn = currentreturn;
+					currentreturn = done;
+				},$loop,@lambda() {
+					currentreturn = oldreturn;
+				});
+		});
+	}};
+}

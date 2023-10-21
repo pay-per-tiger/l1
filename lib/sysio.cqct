@@ -1,0 +1,299 @@
+/* native syscall replacements for system functions in l1 */
+@include <sys.cqct>
+
+// bindings needed for io.cqct
+// _open,_popen,_sockpair,_socket,_tcpopen,_unixopen,_recvfd,_tcpaccept,_ioctl,_close
+
+@global _ioctl;
+@define _ioctl(fd, req, bufp) {
+	sys_ioctl(fd, req, bufp);
+}
+
+@global _munmap;
+@define _munmap(addr, len) {
+	sys_munmap(addr, len);
+
+	return nil;
+}
+
+@global _mapfd;
+@define _mapfd(fd, prot) {
+	@local st, p, s, m, f, fdno;
+
+	if(!isfd(fd))
+		error("fd is not a file descriptor");
+	if(!issysfd(fd))
+		error("fd cannot be memory mapped");
+	if(!isstring(prot))
+		error("prot is not a string");
+
+	fdno=sysfdno(fd);
+
+	m = 0;
+	f = 0;
+
+	if(!isnil(strstr(prot,"p"))) f = unix`MAP_PRIVATE;
+	if(!isnil(strstr(prot,"s"))) f = unix`MAP_SHARED;
+
+	if(!isnil(strstr(prot,"r"))) m |= unix`PROT_READ;
+	if(!isnil(strstr(prot,"w"))) m |= unix`PROT_WRITE;
+	if(!isnil(strstr(prot,"x"))) m |= unix`PROT_EXEC;
+
+	if(looksym(unix,'fstat64)) {
+		st = (struct unix`stat64 *)malloc(sizeof(struct unix`stat64) + 1024);
+	} else {
+		st = (struct unix`stat *)malloc(sizeof(struct unix`stat) + 1024);
+	}
+	if(!st) {
+		error("couldn't allocate stat buf");
+	}
+
+	if(0 > sys_fstat(fdno, st)) {
+		error("couldn't stat fd %a", fd);
+	}
+
+	if(S_ISBLK(st->st_mode)) {
+		@local sb,r;
+
+		sb=(uint64 *)malloc(8);
+		if(!sb) {
+			error("malloc failure");
+		}
+		*sb=0;
+		if(looksym(unix,'BLKGETSIZE)) {
+			r=sys_ioctl(fdno, unix`BLKGETSIZE, sb);
+			if(r) {
+				error("couldn't determine size of block device behind %a", fd);
+			}
+		} else if(looksym(unix,'DKIOCGETBLOCKCOUNT)) {
+			r=sys_ioctl(fd, unix`DKIOCGETBLOCKCOUNT, sb);
+			if(r) {
+				error("couldn't determine size of block device behind %a", fd);
+			}
+		}
+		s = *sb * 512;
+	} else {
+		s = st->st_size;
+	}
+
+	if (s == 0)
+	{
+		//empty file, length zero mapping
+		return [ 0, 0];
+	}
+
+	p = sys_mmap(0, s, m, f, fdno, 0);
+	if(p == -1) {
+		// we can try with noreserve on a platform that supports it
+		if(looksym(unix,'MAP_NORESERVE)) {
+			p = sys_mmap(0, s, m, unix`MAP_NORESERVE|f, fdno, 0);
+		}
+	}
+
+	if(p == -1) {
+		error("could not map fd %a",fd);
+	}
+
+	return [p, {litdom}s];
+}
+
+// cinquecento open flags are not libc fopen flags. you could
+// try talking to vic about why. you could also come petition
+// me to change it.
+@global _open;
+@define _open(file, mode, perm) {
+	@local flags, oflags, fd;
+
+	if(!isstring(file)) 	error("open: filename is not a string");
+	if(!isstring(mode)) 	error("open: mode is not a string");
+	if(1 > strlen(mode)) 	error("open: mode cannot be empty");
+	if(!iscvalue(perm))	error("open: perm must be a cvalue");
+
+	flags = 0;
+	oflags = 0;
+
+	if(!isnil(strstr(mode, "r"))) {
+		flags |= 1;
+		if(!isnil(strstr(mode, "+")))
+			flags |= 2;
+	}
+	if((!isnil(strstr(mode, "w"))) || (!isnil(strstr(mode, "a"))))
+		flags |= 2;
+	if(!isnil(strstr(mode, "w"))) {
+		oflags |= unix`O_CREAT|unix`O_TRUNC;
+		if(!isnil(strstr(mode, "+")))
+			flags |= 1;
+	}
+	if(!isnil(strstr(mode, "a")))
+		oflags |= unix`O_APPEND;
+
+	if((flags &1 ) && (flags & 2))
+		oflags |= unix`O_RDWR;
+	else if(flags & 1)
+		oflags |= unix`O_RDONLY;
+	else if(flags & 2)
+		oflags |= unix`O_WRONLY;
+
+	fd=sys_open(file, oflags, perm);
+	if(0 > fd) {
+		return nil;
+	}
+
+	return fd;
+}
+
+@global _recvfd;
+@define _recvfd(args ...) {
+	error("recvfd not implemented");
+}
+
+@global unlink;
+unlink = sys_unlink;
+
+@global seek;
+@define seek(fd,pos,whence) {
+	@local r;
+
+	if(isnil(fd.fd)) {
+		error("seek: seeking a cinquecento fd with no unix fd");
+	} else {
+		r = sys_lseek(fd.fd, pos, whence);
+	}
+
+	return r;
+}
+
+@global _socket;
+if(looksym(unix, 'socket)) {
+	@define _socket(d, t, p) {
+		@local rv;
+
+		rv=sys_socket(d, t, p);
+		if(rv == -1) {
+			error("socket: %s", errno()[1]);
+		}
+
+		return rv;
+	}
+}
+
+@global _sockpair;
+if(looksym(unix, 'socketpair)) {
+	_sockpair = @lambda() {
+		@local b, r;
+
+		b = (unix`int *)malloc(2 * sizeof(unix`int));
+
+		r = syscall(unix`socketpair, unix`AF_UNIX, unix`SOCK_STREAM, 0, b);
+		if(r == -1) {
+			error("sockpair: %s", errno()[1]);
+		}
+
+		return [ *(b), *(b + 1) ];
+	};
+}
+
+@global indexof;
+indexof = @lambda(val, lst) {
+	@local l, x;
+
+	for(l = length(lst), x = 0; x < l ; x++) {
+		if(val == lst[x])
+			return x;
+	}
+
+	return -1;
+};
+
+@global select;
+select = @lambda(rfds, wfds, xfds, rest ...) {
+	@local timeout;
+	@local r, x;
+	@local rr, rw, rx;
+
+	if(!islist(rfds))
+		error("select: argument 0 must be a list");
+	if(!islist(wfds))
+		error("select: argument 1 must be a list");
+	if(!islist(xfds))
+		error("select: argument 2 must be a list");
+	if(length(rest) > 1)
+		error("select: too many arguments");
+	if(length(rest))
+		if(!islist(rest[0]))
+			error("select: bad timeout specifier");
+
+	x=0;
+	[ rr, rw, rx ] = map(@lambda(set) {
+		map(@lambda(fd) {
+			@local n;
+
+			if(!isfd(fd)) {
+				error("select on non file descriptor");
+			}
+			if(!issysfd(fd)) {
+				error("select on unselectable file descriptor");
+			}
+
+			n = sysfdno(fd);
+			if(n > x) x = n;
+
+			n;
+		}, set);
+	}, [ rfds, wfds, xfds ]);
+
+	if(length(rest)) {
+		timeout = (struct unix`timeval *)malloc(sizeof(struct unix`timeval));
+		timeout->tv_sec = rest[0][0];
+		timeout->tv_usec = rest[0][1];
+	} else
+		timeout = 0;
+
+	r = sys_select(x + 1, rr, rw, rx, timeout);
+
+	if(r == -1) {
+		error("select error");
+	}
+
+	rr=[];
+	foreach(@lambda(v) {
+		if(indexof(sysfdno(v), r[0]) != -1)
+			append(rr, v);
+	}, rfds);
+	rw=[];
+	foreach(@lambda(v) {
+		if(indexof(sysfdno(v), r[1]) != -1)
+			append(rw, v);
+	}, wfds);
+	rx=[];
+	foreach(@lambda(v) {
+		if(indexof(sysfdno(v), r[2]) != -1)
+			append(rx, v);
+	}, xfds);
+
+	[ rr, rw, rx ];
+};
+
+@global readlink;
+readlink = @lambda(path) {
+	@local buf, bl, r;
+
+	if(!isstring(path))
+		error("path is not a string");
+
+	bl = 1024;
+	buf = malloc(bl);
+
+	r = sys_readlink(path, buf, bl);
+
+	if(r == -1) {
+		error("readlink error!");
+	}
+
+	if(r == bl) {
+		error("readlink error -- link too long");
+	}
+
+	return getbytes(buf, r);
+};
+

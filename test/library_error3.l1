@@ -1,0 +1,29 @@
+
+
+compile(parse("@with_imports(a()*b) { ; }", "<eval-input>"));
+
+compile(parse("@with_imports(ab.b.c) { ; }", "<eval-input>"));
+
+compile(parse("@with_imports( (f, ab.b.c) ) { ; }", "<eval-input>"));
+
+compile(parse("@with_imports( (f.a, ab.b) ) { ; }", "<eval-input>"));
+
+@library(test) {};
+
+compile(parse("@with_imports( (f, test.f) ) { ; }", "<eval-input>"));
+
+applyk(@lambda() {
+		@with_imports( (t, test) ) { t.t(); }
+	}, @lambda(s) {
+	}, @lambda(msg) {
+		printf("caught error: %s\n", msg);
+	}, []);
+
+/*
+evalk("@with_imports( (t, test) ) { t.t(); }",
+	@lambda(r) {r;},
+	@lambda(msg) {
+		printf("caught error: %s\n",msg);
+	});
+*/
+

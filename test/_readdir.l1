@@ -1,0 +1,36 @@
+// disabled because definition of struct dirent depends on
+// machine size
+
+ns = @names c32le {
+	@include "l1.names"
+};
+
+define readdir(name){
+	@local as, dom;
+	as = _readdir(name);
+	dom = mkdom(ns, as);
+	return (struct dom`dirent*){dom}0;
+}
+
+define assize(as){
+	@local map;
+	if(isdomain(as))
+		as = as.as;
+	map = as.map();
+	if(length(map) > 1)
+		error("assize on discontiguous address space");
+	return rangelen(vecref(map, 0));
+}
+
+define ls(name,fd){
+	@local p, e;
+	p = readdir(name);
+	e = {typeof(p)}assize(domof(p));
+	while(p < e){
+		fprintf(fd, "%s\n", p->d_name);
+		p++;
+	} 
+}
+
+fd = open("/dev/null", "w");
+ls("/etc", fd);

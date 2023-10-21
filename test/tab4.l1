@@ -1,0 +1,18 @@
+mkstr = @lambda(){
+	return substr("foobar", 0, 3);
+};
+
+test = @lambda(){
+	@local t, i, v;
+	t = mktab();
+	for(i = 0; i < 1024*2*2*2+5; i++)
+		tabinsert(t, mkstr(), i);
+
+	v = tabenum(t);
+	if(length(v) != 2){
+		print("failed");
+		print(length(v));
+	}
+};
+
+test();

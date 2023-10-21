@@ -1,0 +1,721 @@
+#!/bin/bash
+        exec l1 -e mkelf_main "$0" "$@"
+        exit 1
+!#
+
+@global opt;
+
+usage = @lambda(progname) {
+	printf("usage: %s -a <alignment> -s <symbol> -m <arch> [ -l <maxlen> ] <infile> <outfile>\n",
+	       progname);
+	exit(1);
+};
+
+thiself_names = @names clp64le {
+	enum {
+		Nsect = (1 + 4),
+		/* undef + .shstrtab, .data, .symtab, .strtab */
+		Maxstrtab = 128,
+		Maxsymtab = 128
+	} elf_bits;
+
+	typedef unsigned long long uptr;
+
+	// elf wants stdint
+	typedef unsigned short uint16_t;
+	typedef unsigned int uint32_t;
+	typedef signed int int32_t;
+	typedef unsigned long long uint64_t;
+	typedef signed long long int64_t;
+
+/* barf barf barf that we just ate elf.h from libc */
+
+/* This file defines standard ELF types, structures, and macros.
+   Copyright (C) 1995-2003,2004,2005,2006,2007,2008,2009
+	Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, write to the Free
+   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307 USA.  */
+
+/* Standard ELF types.  */
+
+/* Type for a 16-bit quantity.  */
+typedef uint16_t Elf32_Half;
+typedef uint16_t Elf64_Half;
+
+/* Types for signed and unsigned 32-bit quantities.  */
+typedef uint32_t Elf32_Word;
+typedef	int32_t  Elf32_Sword;
+typedef uint32_t Elf64_Word;
+typedef	int32_t  Elf64_Sword;
+
+/* Types for signed and unsigned 64-bit quantities.  */
+typedef uint64_t Elf32_Xword;
+typedef	int64_t  Elf32_Sxword;
+typedef uint64_t Elf64_Xword;
+typedef	int64_t  Elf64_Sxword;
+
+/* Type of addresses.  */
+typedef uint32_t Elf32_Addr;
+typedef uint64_t Elf64_Addr;
+
+/* Type of file offsets.  */
+typedef uint32_t Elf32_Off;
+typedef uint64_t Elf64_Off;
+
+/* Type for section indices, which are 16-bit quantities.  */
+typedef uint16_t Elf32_Section;
+typedef uint16_t Elf64_Section;
+
+/* Type for version symbol information.  */
+typedef Elf32_Half Elf32_Versym;
+typedef Elf64_Half Elf64_Versym;
+
+/* The ELF file header.  This appears at the start of every ELF file.  */
+
+  enum elf_nident {
+	EI_NIDENT  = 16
+  };
+
+typedef struct
+{
+  @0 unsigned char	e_ident[EI_NIDENT];	/* Magic number and other info */
+  @16 Elf32_Half	e_type;			/* Object file type */
+  @18 Elf32_Half	e_machine;		/* Architecture */
+  @20 Elf32_Word	e_version;		/* Object file version */
+  @24 Elf32_Addr	e_entry;		/* Entry point virtual address */
+  @28 Elf32_Off	e_phoff;		/* Program header table file offset */
+  @32 Elf32_Off	e_shoff;		/* Section header table file offset */
+  @36 Elf32_Word	e_flags;		/* Processor-specific flags */
+  @40 Elf32_Half	e_ehsize;		/* ELF header size in bytes */
+  @42 Elf32_Half	e_phentsize;		/* Program header table entry size */
+  @44 Elf32_Half	e_phnum;		/* Program header table entry count */
+  @46 Elf32_Half	e_shentsize;		/* Section header table entry size */
+  @48 Elf32_Half	e_shnum;		/* Section header table entry count */
+  @50 Elf32_Half	e_shstrndx;		/* Section header string table index */
+  @52;
+} Elf32_Ehdr;
+
+typedef struct
+{
+  @0 unsigned char	e_ident[EI_NIDENT];	/* Magic number and other info */
+  @16 Elf64_Half	e_type;			/* Object file type */
+  @18 Elf64_Half	e_machine;		/* Architecture */
+  @20 Elf64_Word	e_version;		/* Object file version */
+  @24 Elf64_Addr	e_entry;		/* Entry point virtual address */
+  @32 Elf64_Off	e_phoff;		/* Program header table file offset */
+  @40 Elf64_Off	e_shoff;		/* Section header table file offset */
+  @48 Elf64_Word	e_flags;		/* Processor-specific flags */
+  @52 Elf64_Half	e_ehsize;		/* ELF header size in bytes */
+  @54 Elf64_Half	e_phentsize;		/* Program header table entry size */
+  @56 Elf64_Half	e_phnum;		/* Program header table entry count */
+  @58 Elf64_Half	e_shentsize;		/* Section header table entry size */
+  @60 Elf64_Half	e_shnum;		/* Section header table entry count */
+  @62 Elf64_Half	e_shstrndx;		/* Section header string table index */
+  @64;
+} Elf64_Ehdr;
+
+/* Fields in the e_ident array.  The EI_* macros are indices into the
+   array.  The macros under each EI_* macro are the values the byte
+   may have.  */
+
+	enum ELF_MAGIC {
+EI_MAG0 =		0,		/* File identification byte 0 index */
+ELFMAG0 =		0x7f,		/* Magic number byte 0 */
+
+EI_MAG1 =		1,		/* File identification byte 1 index */
+ELFMAG1 =		'E',		/* Magic number byte 1 */
+
+EI_MAG2 =		2,		/* File identification byte 2 index */
+ELFMAG2 =		'L',		/* Magic number byte 2 */
+
+EI_MAG3 =		3,		/* File identification byte 3 index */
+ELFMAG3 =		'F',		/* Magic number byte 3 */
+	};
+
+/* Conglomeration of the identification bytes, for easy testing as a word.  */
+//#define	ELFMAG		"\177ELF"
+//#define	SELFMAG		4
+
+	enum ELF_CLASS {
+		EI_CLASS =		4,		/* File class byte index */
+		ELFCLASSNONE =	0,		/* Invalid class */
+		ELFCLASS32 =	1,		/* 32-bit objects */
+		ELFCLASS64 =	2,		/* 64-bit objects */
+		ELFCLASSNUM =	3,
+	};
+
+	enum ELF_DATA {
+		EI_DATA =	5,		/* Data encoding byte index */
+		ELFDATANONE =	0,		/* Invalid data encoding */
+		ELFDATA2LSB =	1,		/* 2's complement, little endian */
+		ELFDATA2MSB =	2,		/* 2's complement, big endian */
+		ELFDATANUM =	3,
+	};
+
+	enum ELF_VERSION {
+		EI_VERSION =	6,		/* File version byte index */
+						/* Value must be EV_CURRENT */
+	};
+
+	enum ELF_OSABI {
+EI_OSABI =		7,	/* OS ABI identification */
+ELFOSABI_NONE =		0,	/* UNIX System V ABI */
+ELFOSABI_SYSV =		0,	/* Alias.  */
+	};
+
+	enum ELF_ABIVERSION {
+EI_ABIVERSION =		8,		/* ABI version */
+	};
+
+	enum ELF_PAD {
+EI_PAD =		9,		/* Byte index of padding bytes */
+	};
+
+/* Legal values for e_type (object file type).  */
+
+  enum ET {
+ET_NONE =		0,		/* No file type */
+ET_REL =		1,		/* Relocatable file */
+ET_EXEC =		2,		/* Executable file */
+ET_DYN =		3,		/* Shared object file */
+ET_CORE =		4,		/* Core file */
+ET_NUM =		5,		/* Number of defined types */
+  };
+
+/* Legal values for e_machine (architecture).  */
+
+  enum EM {
+EM_NONE =		 0,		/* No machine */
+EM_386 =		 3,		/* Intel 80386 */
+EM_ARM =		40,		/* ARM */
+EM_X86_64 =	62,		/* AMD x86-64 architecture */
+EM_NUM =		95,
+
+  };
+
+/* Legal values for e_version (version).  */
+  enum EV {
+EV_NONE =		0,		/* Invalid ELF version */
+EV_CURRENT =	1,		/* Current version */
+EV_NUM =		2,
+  };
+
+/* Section header.  */
+
+typedef struct
+{
+  Elf32_Word	sh_name;		/* Section name (string tbl index) */
+  Elf32_Word	sh_type;		/* Section type */
+  Elf32_Word	sh_flags;		/* Section flags */
+  Elf32_Addr	sh_addr;		/* Section virtual addr at execution */
+  Elf32_Off	sh_offset;		/* Section file offset */
+  Elf32_Word	sh_size;		/* Section size in bytes */
+  Elf32_Word	sh_link;		/* Link to another section */
+  Elf32_Word	sh_info;		/* Additional section information */
+  Elf32_Word	sh_addralign;		/* Section alignment */
+  Elf32_Word	sh_entsize;		/* Entry size if section holds table */
+} Elf32_Shdr;
+
+typedef struct
+{
+  @0 Elf64_Word	sh_name;		/* Section name (string tbl index) */
+  @4 Elf64_Word	sh_type;		/* Section type */
+  @8 Elf64_Xword	sh_flags;		/* Section flags */
+  @16 Elf64_Addr	sh_addr;		/* Section virtual addr at execution */
+  @24 Elf64_Off	sh_offset;		/* Section file offset */
+  @32 Elf64_Xword	sh_size;		/* Section size in bytes */
+  @40 Elf64_Word	sh_link;		/* Link to another section */
+  @44 Elf64_Word	sh_info;		/* Additional section information */
+  @48 Elf64_Xword	sh_addralign;		/* Section alignment */
+  @56 Elf64_Xword	sh_entsize;		/* Entry size if section holds table */
+  @64;
+} Elf64_Shdr;
+
+/* Special section indices.  */
+  enum SHN {
+SHN_UNDEF =	0,		/* Undefined section */
+  };
+/* Legal values for sh_type (section type).  */
+  enum SHT {
+SHT_NULL =	  0,		/* Section header table entry unused */
+SHT_PROGBITS =	  1,		/* Program data */
+SHT_SYMTAB =	  2,		/* Symbol table */
+SHT_STRTAB =	  3,		/* String table */
+  };
+
+/* Legal values for sh_flags (section flags).  */
+  enum SHF {
+SHF_WRITE =	     (1 << 0),	/* Writable */
+SHF_ALLOC =	     (1 << 1),	/* Occupies memory during execution */
+  };
+
+/* Symbol table entry.  */
+
+typedef struct
+{
+  @0 Elf32_Word	st_name;		/* Symbol name (string tbl index) */
+  @4 Elf32_Addr	st_value;		/* Symbol value */
+  @8 Elf32_Word	st_size;		/* Symbol size */
+  @12 unsigned char	st_info;		/* Symbol type and binding */
+  @13 unsigned char	st_other;		/* Symbol visibility */
+  @14 Elf32_Section	st_shndx;		/* Section index */
+  @16;
+} Elf32_Sym;
+
+typedef struct
+{
+  @0 Elf64_Word	st_name;		/* Symbol name (string tbl index) */
+  @4 unsigned char	st_info;		/* Symbol type and binding */
+  @5 unsigned char st_other;		/* Symbol visibility */
+  @6 Elf64_Section	st_shndx;		/* Section index */
+  @8 Elf64_Addr	st_value;		/* Symbol value */
+  @16 Elf64_Xword	st_size;		/* Symbol size */
+  @24;
+} Elf64_Sym;
+
+/* Legal values for ST_BIND subfield of st_info (symbol binding).  */
+
+  enum STB {
+STB_LOCAL =		0, 		/* Local symbol */
+STB_GLOBAL =		1,		/* Global symbol */
+STB_WEAK =		2,		/* Weak symbol */
+STB_NUM =		3,		/* Number of defined types.  */
+STB_LOOS =		10,		/* Start of OS-specific */
+STB_GNU_UNIQUE =	10,		/* Unique symbol.  */
+STB_HIOS =		12,		/* End of OS-specific */
+STB_LOPROC =		13,		/* Start of processor-specific */
+STB_HIPROC =		15,		/* End of processor-specific */
+  };
+
+/* Legal values for ST_TYPE subfield of st_info (symbol type).  */
+
+  enum STT {
+STT_NOTYPE =	0,		/* Symbol type is unspecified */
+STT_OBJECT =	1,		/* Symbol is a data object */
+STT_FUNC =	2,		/* Symbol is a code object */
+STT_SECTION =	3,		/* Symbol associated with a section */
+STT_FILE =	4,		/* Symbol's name is file name */
+STT_COMMON =	5,		/* Symbol is a common data object */
+STT_TLS =	6,		/* Symbol is thread-local data object*/
+STT_NUM =	7,		/* Number of defined types.  */
+STT_LOOS =	10,		/* Start of OS-specific */
+STT_GNU_IFUNC =	10,		/* Symbol is indirect code object */
+STT_HIOS =	12,		/* End of OS-specific */
+STT_LOPROC =	13,		/* Start of processor-specific */
+STT_HIPROC =	15,		/* End of processor-specific */
+  };
+
+/* Symbol visibility specification encoded in the st_other field.  */
+  enum STV {
+STV_DEFAULT =	0,		/* Default symbol visibility rules */
+STV_INTERNAL =	1,		/* Processor specific hidden class */
+STV_HIDDEN =	2,		/* Sym unavailable in other modules */
+STV_PROTECTED =	3,		/* Not preemptible, not exported */
+  };
+};
+
+ELF_ST_BIND = @lambda(val) { return	(((unsigned char) (val)) >> 4); };
+ELF_ST_TYPE = @lambda(val) { return val & 0xf; };
+ELF_ST_INFO = @lambda(bind, type) { return ((bind << 4) + (type & 0xf)); };
+/* How to extract and insert information held in the st_other field.  */
+ELF_ST_VISIBILITY = @lambda(o) { return 	o & 0x03; };
+
+/* Both Elf32_Sym and Elf64_Sym use the same one-byte st_info field.  */
+ELF32_ST_BIND = @lambda(val) { return 		ELF_ST_BIND (val); };
+ELF64_ST_BIND = @lambda(val) { return 		ELF_ST_BIND (val); };
+ELF32_ST_TYPE = @lambda(val) { return 		ELF_ST_TYPE (val); };
+ELF64_ST_TYPE = @lambda(val) { return 		ELF_ST_TYPE (val); };
+ELF32_ST_INFO = @lambda(bind, type) { return 	ELF_ST_INFO (bind, type); };
+ELF64_ST_INFO = @lambda(bind, type) { return 	ELF_ST_INFO (bind, type); };
+/* For ELF64 the definitions are the same.  */
+ELF32_ST_VISIBILITY = @lambda(o) { return 	ELF_ST_VISIBILITY (o); };
+ELF64_ST_VISIBILITY = @lambda(o) { return 	ELF_ST_VISIBILITY (o); };
+
+systems = [
+  [ 'machid: "i386", 'width: thiself_names`ELFCLASS32, 'machine: thiself_names`EM_386 ],
+  [ 'machid: "i686", 'width: thiself_names`ELFCLASS32, 'machine: thiself_names`EM_386 ],
+  [ 'machid: "amd64", 'width: thiself_names`ELFCLASS64, 'machine: thiself_names`EM_X86_64 ],
+  [ 'machid: "x86_64", 'width: thiself_names`ELFCLASS64, 'machine: thiself_names`EM_X86_64 ],
+  [ 'machid: "armv6", 'width: thiself_names`ELFCLASS32, 'machine: thiself_names`EM_ARM ],
+  [ 'machid: "armv7l", 'width: thiself_names`ELFCLASS32, 'machine: thiself_names`EM_ARM ],
+];
+
+symtablen = @lambda(st) {
+	return (unsigned int)((st.p-st.tab)*sizeof(*st.tab));
+};
+
+addsymtab = @lambda(st, name, shndx, addr, size) {
+	@local s;
+
+	if(st.p >= st.e){
+		fprintf(stderr, "symbol table overflow\n");
+		exit(1);
+	}
+	s = st.p++;
+	s->st_name = name;
+	s->st_info = ELF_ST_INFO(thiself_names`STB_GLOBAL, thiself_names`STT_OBJECT);
+	s->st_other = ELF_ST_VISIBILITY(thiself_names`STV_DEFAULT);
+	s->st_shndx = shndx;
+	s->st_value = addr;
+	s->st_size = size;
+};
+
+xwrite = @lambda(fd, p, len)
+{
+	@local ns, rv;
+
+	ns = 0;
+	while(ns < len){
+		rv = sys_write(fd, p, len-ns);
+		if(0 > rv)
+			return -1;
+		ns += rv;
+		p += rv;
+	}
+	return ns;
+};
+
+looksys = @lambda(machid) {
+	@local x;
+
+	for(x = 0 ; x < length(systems) ; x++) {
+		if(systems[x].machid == machid) return systems[x];
+	}
+
+	return 0;
+};
+
+
+
+mkstrtab = @lambda () {
+	@local tab, p, e;
+
+	tab = (thiself_names`char *){thiself_names}malloc(thiself_names`Maxstrtab);
+	memset(tab, 0, thiself_names`Maxstrtab);
+	//p = tab + thiself_names`Maxstrtab;
+	p = tab + 1;
+	e = tab + thiself_names`Maxstrtab/sizeof(tab[0]);
+	return [ 'tab: tab, 'p: p, 'e: e ];
+};
+
+mksymtab32 = @lambda() {
+	@local tab, p, e, sz;
+
+	sz = sizeof(thiself_names`Elf32_Sym) * thiself_names`Maxsymtab;
+	tab = (thiself_names`Elf32_Sym *){thiself_names}malloc(sz);
+	p = tab;
+	e = p + sz/sizeof(*tab);
+
+	return [ 'tab: tab, 'p: p, 'e: e ];
+};
+
+mksymtab64 = @lambda() {
+	@local tab, p, e, sz;
+
+	sz = sizeof(thiself_names`Elf64_Sym) * thiself_names`Maxsymtab;
+	tab = (thiself_names`Elf64_Sym *){thiself_names}malloc(sz);
+	p = tab;
+	e = p + sz/sizeof(*tab);
+
+	return [ 'tab: tab, 'p: p, 'e: e ];
+};
+
+addstrtab = @lambda(st, s)
+{
+	@local len, idx;
+
+	s = (char *)s;
+
+	len = (unsigned int)(strlen(s));
+	if(st.p+len > st.e){
+		fprintf(stderr, "string table overflow %p %p\n", st.p, st.e);
+		exit(1);
+	}
+	memcpy(st.p, s, len);
+	*(((unsigned char *)st.p) + len) = 0;
+	idx = (unsigned int)(st.p-st.tab);
+	st.p += len + 1;
+	return idx;
+};
+
+strtablen = @lambda(st)
+{
+	return (unsigned int)((st.p-st.tab)*sizeof(*st.tab));
+};
+
+opt = [:];
+
+elf64_tbl = [
+  'ehdr : @typeof(thiself_names`Elf64_Ehdr),
+  'shdr : @typeof(thiself_names`Elf64_Shdr),
+  'sym : @typeof(thiself_names`Elf64_Sym),
+  'mksymtab : mksymtab64,
+  'addsymtab : addsymtab,
+  'symtablen : symtablen
+];
+
+elf32_tbl = [
+  'ehdr : @typeof(thiself_names`Elf32_Ehdr),
+  'shdr : @typeof(thiself_names`Elf32_Shdr),
+  'sym : @typeof(thiself_names`Elf32_Sym),
+  'mksymtab : mksymtab32,
+  'addsymtab : addsymtab,
+  'symtablen : symtablen
+];
+
+mkelfo = @lambda(sys, fd, sym, data, len, align, elf_tbl) {
+	@local hdr; //Elf_Ehdr hdr;
+	@local shdr; //Elf_Shdr shdr[Nsect];
+	@local shstrtab; //Strtab shstrtab;
+	@local symstrtab; //Strtab symstrtab;
+	@local symtab; //Symtab symtab;
+	@local dataoff, shstrtaboff, symtaboff, symstrtaboff; //uptr dataoff, shstrtaboff, symtaboff, symstrtaboff;
+	@local endsym; //char endsym[128];
+
+	shstrtab = mkstrtab();
+	symstrtab = mkstrtab();
+	symtab = elf_tbl.mksymtab();
+
+	shdr = malloc(sizeof(elf_tbl.shdr) * thiself_names`Nsect);
+	shdr = {thiself_names}shdr;
+	shdr = (thiself_names`Elf64_Shdr *)shdr;
+
+	hdr = malloc(sizeof(elf_tbl.ehdr));
+	hdr = {mkdom(thiself_names,asof(hdr))}hdr;
+	// this is the first cqct I have written in a while
+	// AND I FORGOT HOW MY OWN LANGUAGE WORKED. sigh.
+	//hdr = {thiself_names}hdr;
+        //hdr = {mkctype_ptr(elf_tbl.ehdr)}hdr;
+	//hdr = (thiself_names`Elf64_Ehdr *)hdr;
+	fprintf(stderr, "BUG: WORKS ON 64 BIT ONLY ATM FIXME\n");
+	hdr = (Elf64_Ehdr *)hdr;
+
+	hdr->e_ident[thiself_names`EI_MAG0] = thiself_names`ELFMAG0;
+	hdr->e_ident[thiself_names`EI_MAG1] = thiself_names`ELFMAG1;
+	hdr->e_ident[thiself_names`EI_MAG2] = thiself_names`ELFMAG2;
+	hdr->e_ident[thiself_names`EI_MAG3] = thiself_names`ELFMAG3;
+	hdr->e_ident[thiself_names`EI_CLASS] = sys.width;
+	hdr->e_ident[thiself_names`EI_DATA] = thiself_names`ELFDATA2LSB;
+	hdr->e_ident[thiself_names`EI_VERSION] = thiself_names`EV_CURRENT;
+	hdr->e_ident[thiself_names`EI_OSABI] = thiself_names`ELFOSABI_SYSV;
+	hdr->e_type = thiself_names`ET_REL;
+	hdr->e_machine = sys.machine;
+	hdr->e_version = thiself_names`EV_CURRENT;
+	hdr->e_entry = 0;
+	hdr->e_phoff = 0;
+	hdr->e_shoff = sizeof(elf_tbl.ehdr);
+	hdr->e_flags = 0;
+	hdr->e_ehsize = sizeof(elf_tbl.ehdr);
+	hdr->e_phentsize = 0;
+	hdr->e_phnum = 0;
+	hdr->e_shentsize = sizeof(elf_tbl.shdr);
+	hdr->e_shnum = thiself_names`Nsect;
+	hdr->e_shstrndx = 1;
+
+	shdr[0].sh_name = 0;
+	shdr[0].sh_type = thiself_names`SHT_NULL;
+	shdr[0].sh_flags = 0;
+	shdr[0].sh_addr = 0;
+	shdr[0].sh_offset = 0;
+	shdr[0].sh_size = 0;
+	shdr[0].sh_link = thiself_names`SHN_UNDEF;
+	shdr[0].sh_info = 0;
+	shdr[0].sh_addralign = 0;
+	shdr[0].sh_entsize = 0;
+
+	shdr[1].sh_name = addstrtab(shstrtab, ".shstrtab");
+	shdr[1].sh_type = thiself_names`SHT_STRTAB;
+	shdr[1].sh_flags = 0;
+	shdr[1].sh_addr = 0;
+	shdr[1].sh_link = 0;
+	shdr[1].sh_info = 0;
+	shdr[1].sh_addralign = 1;
+	shdr[1].sh_entsize = 0;
+
+	shdr[2].sh_name = addstrtab(shstrtab, ".data");
+	shdr[2].sh_type = thiself_names`SHT_PROGBITS;
+	shdr[2].sh_flags = thiself_names`SHF_ALLOC|thiself_names`SHF_WRITE;
+	shdr[2].sh_addr = 0;
+	shdr[2].sh_link = 0;
+	shdr[2].sh_info = 0;
+	shdr[2].sh_addralign = align;
+	shdr[2].sh_entsize = 0;
+
+	shdr[3].sh_name = addstrtab(shstrtab, ".strtab");
+	shdr[3].sh_type = thiself_names`SHT_STRTAB;
+	shdr[3].sh_flags = 0;
+	shdr[3].sh_addr = 0;
+	shdr[3].sh_link = 0;
+	shdr[3].sh_info = 0;
+	shdr[3].sh_addralign = 1;
+	shdr[3].sh_entsize = 0;
+
+	shdr[4].sh_name = addstrtab(shstrtab, ".symtab");
+	shdr[4].sh_type = thiself_names`SHT_SYMTAB;
+	shdr[4].sh_flags = 0;
+	shdr[4].sh_addr = 0;
+	shdr[4].sh_link = 3;
+	shdr[4].sh_info = 0; /* no locals */
+	shdr[4].sh_addralign = 8;
+	shdr[4].sh_entsize = sizeof(elf_tbl.sym);
+
+	elf_tbl.addsymtab(symtab,
+		  addstrtab(symstrtab, sym),
+		  2,
+		  0,
+		  len);
+	endsym = sprintfa("end%s", sym);
+	elf_tbl.addsymtab(symtab,
+		  addstrtab(symstrtab, endsym),
+		  2,
+		  len,
+		  0);
+
+	shstrtaboff = sizeof(elf_tbl.ehdr)+thiself_names`Nsect*sizeof(elf_tbl.shdr);
+	dataoff = shstrtaboff+strtablen(shstrtab);
+	symstrtaboff = dataoff+len;
+	symtaboff = symstrtaboff+strtablen(symstrtab);
+
+	shdr[1].sh_offset = shstrtaboff;
+	shdr[1].sh_size = strtablen(shstrtab);
+
+	shdr[2].sh_offset = dataoff;
+	shdr[2].sh_size = len;
+
+	shdr[3].sh_offset = symstrtaboff;
+	shdr[3].sh_size = strtablen(symstrtab);
+
+	shdr[4].sh_offset = symtaboff;
+	shdr[4].sh_size = elf_tbl.symtablen(symtab);
+
+	xwrite(fd, hdr, sizeof(elf_tbl.ehdr));
+	xwrite(fd, shdr, thiself_names`Nsect*sizeof(elf_tbl.shdr));
+	xwrite(fd, shstrtab.tab, strtablen(shstrtab));
+	xwrite(fd, (unsigned char *)data, len);
+	xwrite(fd, symstrtab.tab, strtablen(symstrtab));
+	xwrite(fd, symtab.tab, elf_tbl.symtablen(symtab));
+};
+
+mkelf_main = @lambda(progname, args ...) {
+	@local ofd; //int ofd;
+	//@local c; //int c;
+	@local align, len, maxlen; //uptr align, len, maxlen, mlen;
+	@local sym; //char *sym;
+	@local data; //void *data;
+	//@local ep; //char *ep;
+	@local mach; //char *mach;
+	@local infile, outfile; //char *infile, *outfile;
+	@local sys; 
+	@local x, optind;
+
+	maxlen = 0;
+	align = 0;
+	len = 0;
+	sym = 0;
+
+	mach = 0;
+
+	x = 0;
+	while(x < length(args)) {
+                //"a:hl:m:s:"
+		switch(args[x]){
+		case "-a":
+			if((x + 1) < length(args)) {
+				opt['a'] = 1;
+				align = strton(args[x + 1]);
+				if(isnil(align))
+					usage(progname);
+				x += 2;
+			} else {
+				usage(progname);
+			}
+			break;
+		case "-s":
+			if((x + 1) < length(args)) {
+				opt['s'] = 1;
+				sym = args[x + 1];
+				x += 2;
+			} else {
+				usage(progname);
+			}
+			break;
+		case "-l":
+			if((x + 1) < length(args)) {
+				opt['l'] = 1;
+				maxlen = strton(args[x + 1]);
+				if(isnil(maxlen))
+					usage(progname);
+				x += 2;
+			} else {
+				usage(progname);
+			}
+			break;
+		case "-m":
+			if((x + 1) < length(args)) {
+				opt['m'] = 1;
+				mach = args[x + 1];
+				x += 2;
+			} else {
+				usage(progname);
+			}
+			break;
+		case "-h":
+		case "?":
+			usage(progname);
+			break;
+		default:
+			optind = x;
+			x = length(args);
+		}
+	}
+
+	if(isnil(opt['a']) || isnil(opt['s']) || isnil(opt['m']))
+		usage(progname);
+
+	if((length(args) - optind) != 2)
+		usage(progname);
+
+	infile = args[optind];
+	outfile = args[optind + 1];
+
+	sys = looksys(mach);
+	if(sys == 0){
+		fprintf(stderr, "%s: unsupported architecture: %a\n", progname, mach);
+		exit(1);
+	}
+
+	data = mapfile(infile);
+	len = length(data);
+
+	if(!data) {
+		fprintf(stderr, "mapfile: %s\n", infile);
+		exit(1);
+	}
+
+	ofd = sys_open(outfile, unix`O_TRUNC|unix`O_CREAT|unix`O_WRONLY, 0664);
+	if(0 > ofd){
+		fprintf(stderr, "open: %s: %s\n", outfile, strerror(errno));
+		exit(1);
+	}
+	if(sys.width == thiself_names`ELFCLASS64)
+		mkelfo(sys, ofd, sym, data, len, align, elf64_tbl);
+	else
+		mkelfo(sys, ofd, sym, data, len, align, elf32_tbl);
+	sys_close(ofd);
+	return 0;
+};
+

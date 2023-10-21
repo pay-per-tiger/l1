@@ -1,0 +1,42 @@
+checkenum = @lambda(vec, len){
+	@local i, k, v;
+	for(i = 0; i < len/2; i++){
+		k = vecref(vec, i);
+		v = vecref(vec, i+len/2);
+		if(k != v){
+			print("failed checkenum");
+			return;
+		}
+	}
+};
+
+test = @lambda(){
+	@local t, n, i, v;
+	t = mktab();
+	n = 10000;
+	for(i = 0; i < n; i++)
+		tabinsert(t, i, i);
+
+	v = tabenum(t);
+	if(length(v) != n*2){
+		print(length(v));
+		print("failed 1");
+		return;
+	}
+
+	checkenum(v, length(v));
+
+	for(i = 0; i < n/2; i++)
+		tabdelete(t, i*2);
+
+	v = tabenum(t);
+	if(length(v) != n){
+		print("failed 2");
+		return;
+	}
+
+	checkenum(v, length(v));
+};
+
+test();
+

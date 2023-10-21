@@ -1,0 +1,178 @@
+@include <nsutil.cqct>
+
+@global
+	mknsmap
+	;
+
+{
+
+@local nsrec, isnsrec, nsmaprec, isnsmaprec;
+
+@rec(nsrec, base, path, ns);
+@rec(nsmaprec, add, del, exe, setexe, setexebyname, byaddr, byname, nspath, nsbase, each, copy, rebind);
+
+@defloc _mknsmap(mkns, rs, x)
+{
+	@defloc resort()
+	{
+		sort(rs, @lambda(a, b) { cvalcmp(a.base, b.base); });
+	}
+
+	@defloc _byaddr(addr)
+	{
+		@local i, m, r;
+		m = length(rs);
+		r = nil;
+		for(i = 0; i < m; i++){
+			if(rs[i].base > addr)
+				break;
+			r = rs[i];
+		}
+		return r;
+	}
+
+	@defloc _byname(name)
+	{
+		@local i, m;
+		m = length(rs);
+		for(i = 0; i < m; i++)
+			if(strstr(rs[i].path, name) != nil)
+				return rs[i];
+		return nil;
+	}
+
+	/* base: address at which binary is loaded */
+	@defloc add(base, rest ...)
+	{
+		@local vbase, path, ns, r;
+
+		if(length(rest) == 1)
+			path = rest[0];
+		else if(length(rest) == 2){
+			vbase = rest[0];  /* static load address of binary */
+			path = rest[1];
+		}else
+			error("wrong number of arguments to add");
+
+		ns = mkns(path);
+		if(ns == nil)
+			error("cannot construct name space for %s", path);
+
+		if(vbase == nil) {
+		        vbase = ns.nsinfo().vaddr;
+		}
+
+		if(base != vbase)
+			ns = mknsoff(ns, base-vbase);
+
+		r = nsrec({litdom}base, path, ns);
+		append(rs, r);
+		resort();
+		return nil;
+	}
+
+	@defloc del(base)
+	{
+		@local r;
+		r = _byaddr(base);
+		if(r == nil)
+			error("no name space for address %p", base);
+		delete(rs, r);
+		if(x == r)
+			x = nil;
+		return nil;
+	}
+
+	@defloc exe()
+	{
+		return x.ns;
+	}
+
+	@defloc setexe(base)
+	{
+		@local r;
+		r = _byaddr(base);
+		if(r == nil)
+			error("no name space for address %p", base);
+		x = r;
+		return nil;
+	}
+
+	@defloc setexebyname(name)
+	{
+		@local r;
+		r = _byname(name);
+		if(r == nil)
+			error("no name space with name %s", name);
+		x = r;
+		return nil;
+	}
+
+	@defloc each(fn)
+	{
+		foreach(@lambda(r) { fn(r.base, r.path, r.ns); }, rs);
+	}
+
+	@defloc byaddr(addr)
+	{
+		@local r;
+		r = _byaddr(addr);
+		if(r != nil)
+			return r.ns;
+		return nil;
+	}
+
+	@defloc byname(name)
+	{
+		@local r;
+		r = _byname(name);
+		if(r != nil)
+			return r.ns;
+		return nil;
+	}
+
+	@defloc nspath(ns)
+	{
+		@local path;
+		each(@lambda(b, p, n) { if(n == ns) path = p; });
+		return path;
+	}
+
+	@defloc nsbase(ns)
+	{
+		@local base;
+		each(@lambda(b, p, n) { if(n == ns) base = b; });
+		return base;
+	}
+
+	@defloc _copy()
+	{
+		return _mknsmap(mkns, copy(rs), x);
+	}
+
+	@defloc rebind(fd)
+	{
+		each(@lambda(base, path, ns){ ns.rebind(fd); });
+	}
+
+	return nsmaprec(add,
+			del,
+			exe,
+			setexe,
+			setexebyname,
+			byaddr,
+			byname,
+			nspath,
+			nsbase,
+			each,
+			_copy,
+			rebind);
+}
+
+@define mknsmap(mkns)
+{
+	return _mknsmap(mkns, [], nil);
+}
+
+
+}

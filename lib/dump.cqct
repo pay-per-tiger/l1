@@ -1,0 +1,40 @@
+
+@global dump_defined;
+
+/**
+dump.cqct provides code for printing out namespaces and the values associated
+with typed pointers.
+
+This library is DEPRECATED. It has been replaced by nsutil and memstr.
+*/
+
+if (dump_defined == nil)
+{
+@global printtype, dumpns, objectstr;
+
+dump_defined = 1;
+
+/**
+Prints the type t in a way parsable in a .names file.
+*/
+@define printtype(t) {
+	error("dump.cqct's printtype has been deprecated. "
+	      " include nsutil.cqct instead\n");
+}
+
+/**
+print a namespace in .names file format.
+*/
+@define dumpns(dn){
+	fprintf(stderr, "Warning: dumpns from dump.cqct is deprecated. "
+	                "Use printns from nsutil.cqct instead.");
+}
+
+@define objectstr(argv ...)
+{
+	fprintf(stderr, "Warning: objectstr is bring deprecated. Use memstr's "
+	        "cptrstr instead.\n");
+	apply(@import_object(memstr).cptrstr,argv);
+}
+
+}

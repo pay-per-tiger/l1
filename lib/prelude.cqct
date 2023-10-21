@@ -1,0 +1,16 @@
+@define l1version()
+{
+	/* this string is updated by git */
+	return "L1 version 344437c23d1b13f111a48ca72a529ff1cf8db06e Sat Oct 21 11:07:21 2023 -0500";
+}
+@include <cqct.cqct>
+@include <ctype.cqct>
+@include <profile.cqct>
+@include <malloc.cqct>
+@include <sysio.cqct>
+@include <util.cqct>
+@include <validate.cqct>
+@include <rand.cqct>
+@include <xsas.cqct>
+@include <record.cqct>
+@include <library.cqct>

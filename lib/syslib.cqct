@@ -1,0 +1,329 @@
+/* native syscall replacements for system functions in l1 */
+@include <inet.cqct>
+@include <sys.cqct>
+
+// replacements for fnio.c and tweaks to io.cqct
+@include <sysio.cqct>
+
+unlink = sys_unlink;
+
+/* LINUX_REBOOT_CMD_RESTART RB_AUTOBOOT 0x1234567 */
+/* LINUX_REBOOT_CMD_HALT RB_HALT_SYSTEM 0xcdef0123 */
+/* LINUX_REBOOT_CMD_POWER_OFF 0x4321fedc */
+/* LINUX_REBOOT_CMD_RESTART2 0xa1b2c3d4 */
+/* LINUX_REBOOT_CMD_CAD_ON RB_ENABLE_CAD 0x89abcdef */
+/* LINUX_REBOOT_CMD_CAD_OFF RB_DISABLE_CAD, 0 */
+@global reboot;
+@define reboot(cmd) {
+	return sys_reboot(0xfee1dead,672274793,cmd,0);
+}
+
+@global dirlist;
+@global _readdir;
+if(looksym(unix,'getdents)) {
+@define dirlist(dirname) {
+	@local readdir_size;
+	@local buf;
+	@local fd;
+	@local ddom;
+	@local count;
+	@local l;
+	@local start,end;
+
+	readdir_size=512;
+
+	buf=malloc(readdir_size);
+	if(!buf) return nil;
+
+	fd=sys_open(dirname,unix`O_RDONLY);
+	if(fd==-1)
+		return nil;
+
+	ddom=mkdom(unix,asof(buf));
+	buf={ddom}buf;
+
+	l=[];
+
+	while((count=(int)syscall(unix`getdents,fd,buf,readdir_size)) > 0) {
+
+		start=buf;
+		end=((unsigned char *)buf)+count;
+		while(start<end) {
+			start=(struct linux_dirent *)start;
+			append(l,getbytes(start->d_name,strlen(start->d_name)));
+			start=(struct linux_dirent *)(((unsigned char *)start)
+				+ start->d_reclen);
+		}
+	}
+
+	return l;
+}
+
+@define _readdir(dirname) {
+	@local s,l,p,d,x;
+
+	l=dirlist(dirname);
+	s=mkstr(length(l) * sizeof(struct unix`dirent));
+
+	d=mkdom(unix,mksas(s));
+	p=(struct dirent *){d}0;
+	for(x=0;x<length(l);x++) {
+		putbytes(p->d_name,l[x]);
+		p++;
+	}
+
+	return asof(d);
+}
+}
+
+@global mk_connected_tcp_socket;
+@global mk_connected_udp_socket;
+@global bind_inet_socket;
+@global __tcpopen;
+if(looksym(unix,'AF_INET)) {
+@define mk_connected_tcp_socket(ip,port) {
+	@local s,sa,r;
+
+	s=sys_socket(unix`AF_INET,unix`SOCK_STREAM,0);
+	if(s==-1) return nil;
+
+	sa=(struct unix`sockaddr_in *)malloc(sizeof(struct unix`sockaddr_in));
+
+	if(lookfield(@typeof(*sa),'length)) {
+		sa->length=sizeof(*sa);
+	}
+	sa->sin_family=unix`AF_INET;
+
+	sa->sin_port=ctons(port);
+	sa->sin_addr.s_addr=ctonl(ip);
+
+	r=sys_connect(s,sa,sizeof(*sa));
+	if(r) {
+		sys_close(s);
+		return nil;
+	}
+
+	return s;
+}
+
+@define __tcpopen(addr) { // don't promote to _tcpopen until DNS works
+	@local host,port,arr;
+
+	if(!isstring(addr))
+		error("addr must be a string");
+
+	arr=split(addr,":");
+	if(length(arr) != 2)
+		error("addr must be a string of the form ip:port");
+
+	host=inet_aton(arr[0]);
+	if(isnil(host))
+		error("%a is not an ip address",arr[0]);
+
+	port=strton(arr[1]);
+	if(isnil(port))
+		error("%a is not a port",arr[1]);
+
+	return mk_connected_tcp_socket(host,port);
+}
+
+@define mk_connected_udp_socket(ip,port) {
+	@local s,sa,r;
+
+	s=sys_socket(unix`AF_INET,unix`SOCK_DGRAM,0);
+	if(s==-1) return nil;
+
+	sa=(struct unix`sockaddr_in *)malloc(sizeof(struct unix`sockaddr_in));
+
+	if(lookfield(@typeof(*sa),'length)) {
+		sa->length=sizeof(*sa);
+	}
+
+	sa->sin_family=unix`AF_INET;
+
+	sa->sin_port=ctons(port);
+	sa->sin_addr.s_addr=ctonl(ip);
+
+	r=sys_connect(s,sa,sizeof(*sa));
+	if(r) { sys_close(s); return nil; }
+
+	return s;
+}
+
+@define bind_inet_socket(s,ip,port) {
+	@local sa,r;
+
+	sa=(struct unix`sockaddr_in *)malloc(sizeof(struct unix`sockaddr_in));
+
+	if(lookfield(@typeof(*sa),'length)) {
+		sa->length=sizeof(*sa);
+	}
+	sa->sin_family=unix`AF_INET;
+
+	sa->sin_port=ctons(port);
+	sa->sin_addr.s_addr=ctonl(ip);
+
+	r=sys_bind(s,sa,sizeof(*sa));
+
+	return r;
+}
+
+}
+
+@global mk_connected_unix_socket;
+@global bind_unix_socket;
+@global _unixopen;
+if(looksym(unix,'AF_UNIX)) {
+@define mk_connected_unix_socket(pathname) {
+	@local s,sa,r;
+
+	s=sys_socket(unix`AF_UNIX,unix`SOCK_STREAM,0);
+	if(s==-1) return nil;
+
+	sa=(struct unix`sockaddr_un *)malloc(sizeof(struct unix`sockaddr_un));
+
+	if(lookfield(@typeof(*sa),'length)) {
+		sa->length=sizeof(*sa);
+	}
+	sa->sun_family=unix`AF_UNIX;
+	putbytes(&sa->sun_path,pathname);
+
+	r=sys_connect(s,sa,sizeof(*sa));
+	if(r) { sys_close(s); return nil; }
+
+	return s;
+}
+
+@define _unixopen(pathname) {
+
+	if(!isstring(pathname))
+		error("pathname must be a string");
+
+	return mk_connected_unix_socket(pathname);
+}
+
+@define bind_unix_socket(s,pathname) {
+	@local sa,r;
+
+	sa=(struct unix`sockaddr_un *)malloc(sizeof(struct unix`sockaddr_un));
+
+	if(lookfield(@typeof(*sa),'length)) {
+		sa->length=sizeof(*sa);
+	}
+	sa->sun_family=unix`AF_UNIX;
+	putbytes(&sa->sun_path,pathname);
+
+	r=sys_bind(s,sa,sizeof(*sa));
+
+	return r;
+}
+}
+
+@global _popen;
+@define _popen(args ...) {
+	@local flags, p, pp, r, fds;
+
+	if(length(args) < 2) {
+		// you need at least the a program
+		return nil;
+	}
+
+	flags = args[length(args) - 1];
+	if(flags > 256) return nil;
+
+	fds = [];
+
+	append(fds, _sockpair());
+	append(fds, _sockpair());
+	append(fds, _sockpair());
+
+	p = sys_fork();
+	if(p == -1) {
+		error("popen: fork failed");
+	} else if(!p) {
+		pp = sys_fork();
+		if(pp == -1) {
+			error("popen: interior fork failed");
+		} else if(!pp) {
+			sys_dup2(fds[0][1], 0);
+			sys_dup2(fds[1][1], 1);
+			sys_dup2(fds[2][1], 2);
+			sys_execve(args[0], slice(args, 0, length(args) - 1), []);
+			sys_exit(1);
+		} else {
+			sys_exit(0);
+		}
+	} else {
+		r = waitpid(p, 0);
+		if(!isnil(r)) {
+			return [ fds[0][0], fds[1][0], fds[2][0] ];
+		} else {
+			error("popen: waitpid failure!");
+		}
+	}
+}
+
+@global system;
+@define system(cmd) {
+	@local p,r;
+
+	p=sys_fork();
+	if(p == -1) {
+		error("system: fork failed");
+	} else if(!p) {
+		applyk(@lambda() {
+			sys_execve("/bin/sh",["sh","-c",cmd],[]);
+		},@lambda(args ...) {
+			sys_exit(1);
+		},@lambda(args ...) {
+			sys_exit(1);
+		},[]);
+	} else {
+		r=waitpid(p,0);
+		if(!isnil(r)) {
+			return r[1];
+		} else {
+			error("system: waitpid failure!\n");
+		}
+	}
+}
+
+@global kill;
+@define kill(pid, sig) {
+
+	if(iscid(sig)) {
+		@local t;
+
+		t = looksym(unix, sig);
+		if(!t)
+			error("kill: bad signal specification %a\n", sig);
+
+		if(!isenumconst(t[0]))
+			error("kill: bad signal specification %a\n", sig);
+
+		sys_kill(pid, t[2]["offset"]);
+	} else {
+		sys_kill(pid, sig);
+	}
+}
+
+//XXX not documented, maybe belongs in a different library
+//XXX perhaps should be called readlink?
+@global readsymlink;
+@define readsymlink(buf) {
+	@local b, sz, res;
+
+	sz = 0x80;
+
+	while(1) {
+		b = malloc(sz);
+		res = sys_readlink(buf, b, sz);
+		if(res < sz)
+			break;
+		sz *= 2;
+	}
+
+	if(res < 0) return nil;
+
+	return getbytes((char*)b, res);
+}

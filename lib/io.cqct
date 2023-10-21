@@ -1,0 +1,583 @@
+// These bindings mirror bindings offered originally in fnio.c
+// They require sys.cqct and are required by io.cqct
+
+@global
+	access,
+	fdopen,
+	read,
+	write,
+	fprintf,
+	ioctl,
+	mapfile,
+	open,
+	close,
+	popen,
+	print,
+	printf,
+	recvfd,
+	socket,
+	sockpair,
+	stdin,
+	stdout,
+	stderr,
+	tcpaccept,
+	getpeername,
+	getsockname,
+	tcplisten,
+	tcpopen,
+	unixopen,
+	stat,
+	fstat,
+	lstat
+;
+
+{
+@local mknewfd;
+@local stat_kmap;
+@global isfd;
+
+@global ions;
+ions = @names c32le {
+	enum Fflag {
+		/* FFlag in syscqct.h */
+		Fread = 4,
+		Fwrite = 8,
+	};
+};
+
+mknewfd = @lambda(sysfd, fd, flags, closed, name, read, write, close) {
+	@local t;
+
+	t=[:];
+	t=mktabpriv(t, "fd");
+
+	t.sysfd = sysfd;
+	t.fd = fd;
+	t.flags = flags;
+	t.closed = closed;
+	t.name = name;
+	t.read = read;
+	t.write = write;
+	t.close = close;
+
+	return t;
+};
+isfd = @lambda(v) {
+	return isprivtable(v);
+};
+
+@global mksysfd;
+mksysfd = @lambda(fd, flags, rest ...) {
+	return mknewfd(
+		1, // sysfd
+		fd, // fd
+		flags, // flags
+		0, // closed
+		length(rest) ? rest[0] : "<unnamed>", // name
+		nil, // read
+		nil, // write
+		nil // close
+	);
+};
+
+@global mkfd;
+@define mkfd(read, write, close, rest ...) {
+	return mknewfd(
+		0, // sysfd
+		nil, // fd
+		nil, // flags
+		0, // closed
+		length(rest) ? rest[0] : "<unnamed>", // name
+		read, // read
+		write, // write
+		close // close
+	);
+}
+
+@defloc mksysfdfinal(arg ...)
+{
+	@local rv,g;
+
+	g = $procgen;
+
+	rv = apply(mksysfd, arg);
+	finalize(rv, @lambda(f) {
+		if($procgen == g)
+			close(f);
+	});
+	return rv;
+}
+
+@defloc mode2flags(mode)
+{
+	@local flags;
+	flags = 0;
+	if(strstr(mode, "r") != nil)
+		flags |= ions`Fread;
+	if(strstr(mode, "w") != nil)
+		flags |= ions`Fwrite;
+	if(strstr(mode, "a") != nil)
+		flags |= ions`Fwrite;
+	return flags;
+}
+
+@define printf(fmt, rest ...) {
+	@local r;
+
+	r=apply(sprintfa, fmt, rest);
+
+	write(stdout,r);
+}
+
+@define fprintf(fd, fmt, rest ...) {
+	@local r;
+
+	r=apply(sprintfa, fmt, rest);
+
+	write(fd,r);
+}
+
+@define open(file, mode, rest ...)
+{
+	@local fd, perm;
+
+	perm = nil;
+	if(length(rest) > 0)
+		perm = rest[0];
+
+	if(!isstring(file))
+		error("open: argument 0 must be a string");
+	if(!isstring(mode))
+		error("open: argument 1 must be a string");
+
+	if(isnil(perm))
+		perm = 0777;
+	else if(!iscvalue(perm))
+		error("open: argument 2 must be a cvalue");
+
+	fd = _open(file, mode, perm);
+	if(fd == nil)
+		return nil;
+
+	return mksysfdfinal(fd, mode2flags(mode), file);
+}
+
+@define access(path, mode)
+{
+	@local r;
+	@local m;
+	@local x;
+
+	if(!isstring(path))
+		error("access: argument 0 must be a string");
+	if(!isstring(mode))
+		error("access: argument 1 must be a string");
+
+	m = 0;
+	for(x = 0 ; x < length(mode) ; x++) {
+		if(mode[x] == 'r') m |= unix`R_OK;
+		else if(mode[x] == 'w') m |= unix`W_OK;
+		else if(mode[x] == 'x') m |= unix`X_OK;
+		else if(mode[x] == 'f') m |= unix`F_OK;
+		else error("access: invalid mode character");
+	}
+
+	r = sys_access(path, m);
+
+	// cinquecento library access is not libc access
+	if(r == -1)
+		return 0;
+	else
+		return 1;
+}
+
+@global issysfd;
+issysfd = @lambda(fd) {
+	if(!isfd(fd)) {
+		error("issysfd: argument is not a fd");
+	}
+
+	if(fd.sysfd)
+		return 1;
+	else
+		return 0;
+};
+
+@global sysfdno;
+sysfdno = @lambda(fd) {
+	if(!isfd(fd))
+		error("sysfdno: argument is not a fd");
+	if(!issysfd(fd))
+		error("sysfdno: argument is not a system fd");
+
+	return fd.fd;
+};
+
+@global isclosed;
+isclosed = @lambda(fd) {
+	if(!isfd(fd))
+		error("isclosed: argument is not a fd");
+
+	if(fd.closed)
+		return 1;
+	else
+		return 0;
+};
+
+@global setclosed;
+setclosed = @lambda(fd) {
+	if(!isfd(fd))
+		error("setclosed: argument is not a fd");
+
+	fd.closed = 1;
+
+	nil;
+};
+
+@global fdname;
+fdname = @lambda(fd) {
+	if(!isfd(fd))
+		error("fdname: argument is not a fd");
+
+	return fd.name;
+};
+
+@define read(fd, count)
+{
+	if(issysfd(fd)) {
+		@local buf, r;
+
+		buf = mkstr(count);
+
+		r = sys_read(sysfdno(fd), buf, count);
+
+		if(r < 0) {
+			error("read error");
+		} else if(!r) {
+			return nil;
+		}
+
+		if(r == count)
+			return buf;
+		else
+			return substr(buf, 0, r);
+	} else if(fd.read) {
+		return fd.read(count);
+	} else {
+		error("read on a fd with no reader");
+	}
+};
+
+@define write(fd, buf)
+{
+	if(issysfd(fd)) {
+		sys_write(sysfdno(fd), buf, length(buf));
+	} else {
+		fd.write(buf);
+	}
+}
+
+@define fdopen(fd, mode)
+{
+	mksysfdfinal(fd, mode2flags(mode), sprintfa("fd%d", fd));
+}
+
+@define popen(arg ...)
+{
+	@local fds;
+
+	fds = apply(_popen, arg);
+	return map(@lambda(fd) {
+		/* FIXME: don't be overly permissive */
+		mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+	}, fds);
+}
+
+@define print(val,rest ...) // remove from language. provided for test suite
+{
+	printf("%a\n",val);
+}
+
+@define sockpair()
+{
+	@local fds;
+	fds = _sockpair();
+	return map(@lambda(fd) {
+			mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+		}, fds);
+}
+
+@define socket(d, t, p)
+{
+	@local fd;
+	fd = _socket(d, t, p);
+	if(fd == nil)
+		return nil;
+	return mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+}
+
+@define tcpopen(addr)
+{
+	@local fd;
+	fd = _tcpopen(addr);
+	if(fd == nil)
+		return nil;
+	return mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+}
+
+@define unixopen(path)
+{
+	@local fd;
+	fd = _unixopen(path);
+	if(fd == nil)
+		return nil;
+	return mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+}
+
+@define recvfd(fd)
+{
+	@local rfd;
+
+	if(!isfd(fd))
+		error("recvfd: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("recvfd: file descriptor does not support ioctl");
+
+	rfd = _recvfd(sysfdno(fd));
+	if(rfd == nil)
+		return nil;
+	return mksysfdfinal(rfd, ions`Fread|ions`Fwrite);
+}
+
+@define tcplisten(addr)
+{
+	@local fd;
+	fd = _tcplisten(addr);
+	if(fd == nil)
+		return nil;
+	return mksysfdfinal(fd, 0);
+}
+
+@define tcpaccept(lfd)
+{
+	@local fd;
+
+	if(!isfd(lfd))
+		error("tcpaccept: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("tcpaccept: argument 0 must be a system fd");
+
+	fd = _tcpaccept(sysfdno(lfd));
+	if(fd == nil)
+		return nil;
+	return mksysfdfinal(fd, ions`Fread|ions`Fwrite);
+}
+
+@define getpeername(fd)
+{
+	if(!isfd(fd))
+		error("getpeername: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("getpeername: argument 0 must be a system fd");
+
+	return _getpeername(sysfdno(fd));
+}
+
+@define getsockname(fd)
+{
+	if(!isfd(fd))
+		error("getsockname: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("getsockname: argument 0 must be a system fd");
+
+	return _getsockname(sysfdno(fd));
+}
+
+@define mapfile(file, arg ...)
+{
+	@local addr, len, rv, fd, mode, fmode;
+
+	if(length(arg) > 0)
+		mode = arg[0];
+	else
+		mode = "rwp";
+
+	if(strstr(mode,"p") != nil) {
+		if(strstr(mode,"s") != nil)
+			error("mapfile private and shared are exclusive");
+	} else {
+		if(strstr(mode,"s") == nil)
+			mode += "p";
+	}
+
+	fmode = "";
+	if(strstr(mode,"r") != nil) {
+		fmode = "r";
+	}
+	if(strstr(mode,"w") != nil) {
+		if(strstr(mode,"s") != nil)
+			fmode += "w";
+	}
+
+	fd = _open(file, fmode, 0);
+
+	if(isnil(fd))
+		return nil;
+
+	fd = mksysfd(fd, mode2flags(fmode), file);
+
+	rv = _mapfd(fd, mode);
+	close(fd);
+
+	if(!rv)
+		return nil;
+
+	if(rv[0] == (unsigned long) -1)
+		return nil;
+
+	[addr, len] = rv;
+	if(len) {
+		@local ulen;
+
+		if(! ( len % 4096) )
+			ulen = len;
+		else
+			ulen = ((len / 4096) + 1) * 4096;
+		if(strstr(mode,"w"))
+			rv = mkstrm(addr, len);
+		else
+			rv = mkstrmro(addr, len);
+
+		finalize(rv, @lambda(x) {
+			sys_munmap(addr, {litdom}ulen);
+		});
+	} else
+		rv = "";
+
+	return rv;
+}
+
+@define ioctl(fd,req,buf)
+{
+	@local rv;
+
+	if(!isfd(fd))
+		error("ioctl: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("ioctl: file descriptor does not support ioctl");
+	if(isclosed(fd))
+		error("ioctl: attempt to ioctl on closed file descriptor");
+
+	rv=_ioctl(sysfdno(fd),req,buf);
+	// this is how fnio.c ioctl() behaved
+	if(rv == -1) {
+		return -errno()[0];
+	} else {
+		return rv;
+	}
+}
+
+@define close(fd)
+{
+	if(!isfd(fd))
+		error("close: argument 0 must be a fd");
+	if(isclosed(fd))
+		return;
+	if(issysfd(fd)) {
+		sys_close(sysfdno(fd));
+		setclosed(fd);
+	} else {
+		fd.close();
+		setclosed(fd);
+	}
+}
+
+stat_kmap = [
+	unix`S_IFSOCK: 'socket,
+	unix`S_IFLNK: 'link,
+	unix`S_IFREG: 'file,
+	unix`S_IFBLK: 'block,
+	unix`S_IFDIR: 'dir,
+	unix`S_IFCHR: 'character,
+	unix`S_IFIFO: 'fifo
+];
+
+@define stat(path)
+{
+	@local buf, kind, r;
+
+
+	if(looksym(unix`stat64)) {
+		buf = (struct unix`stat64 *)malloc(sizeof(struct unix`stat64));
+	} else {
+		buf = (struct unix`stat *)malloc(sizeof(struct unix`stat));
+	}
+
+	r = sys_stat(path, buf);
+
+	if(!r) {
+		kind = stat_kmap[buf->st_mode & unix`S_IFMT];
+		r = [
+			'size: buf->st_size
+		];
+		if(!isnil(kind))
+			r['kind] = kind;
+		return r;
+	} else {
+		return nil;
+	}
+}
+
+@define lstat(path)
+{
+	@local buf, kind, r;
+
+	if(looksym(unix`stat64)) {
+		buf = (struct unix`stat64 *)malloc(sizeof(struct unix`stat64));
+	} else {
+		buf = (struct unix`stat *)malloc(sizeof(struct unix`stat));
+	}
+
+	r = sys_lstat(path, buf);
+
+	if(!r) {
+		kind = stat_kmap[buf->st_mode & unix`S_IFMT];
+		r = [
+			'size: buf->st_size
+		];
+		if(!isnil(kind))
+			r['kind] = kind;
+		return r;
+	} else {
+		return nil;
+	}
+}
+
+@define fstat(fd)
+{
+	@local buf, kind, r;
+
+	if(!isfd(fd))
+		error("fstat: argument 0 must be a fd");
+	if(!issysfd(fd))
+		error("fstat: argument 0 must be a sys fd");
+
+	buf = (struct unix`stat *)malloc(sizeof(struct unix`stat));
+
+	r = sys_fstat(sysfdno(fd), buf);
+
+	if(!r) {
+		kind = stat_kmap[buf->st_mode & unix`S_IFMT];
+		r = [
+			'size: buf->st_size
+		];
+		if(!isnil(kind))
+			r['kind] = kind;
+		return r;
+	} else {
+		return nil;
+	}
+
+}
+
+}

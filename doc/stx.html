@@ -1,0 +1,882 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>Cinquecento Manual</title>
+<link rel="stylesheet" type="text/css" href="reset.css"/>
+<link rel="stylesheet" type="text/css" href="styles.css"/>
+</head>
+
+<body>
+
+<div id="side1">
+</div>
+
+<div id="content">
+
+<div id="title">
+<h3>Cinquecento Abstract Syntax Tree</h3>
+</div>
+
+The following are syntax node types accepted by the compiler.
+
+<div class="table">
+<table>
+    <tr>
+        <th width=150px>kind(children...)</th>
+        <th>properties</th>
+        <th width=150px>children requirements</th>
+        <th width=150px>represents</th>
+    </tr>
+
+    <!--
+    Not described:
+    #bool, #char, #complex, #double, #float, #int, #long, #short, #signed,
+    #unsigned, #void, #ambig, #arr, #base, #bitfield, #boxref, #boxset,
+    #comma, #decl, #decls, #dotdot, #enum, #enumel, #fieldoff, #fields,
+    #fun, #id, #lapply, #mkbox, #mkbox0, #names, #null, #orpat, #ptr,
+    #struct, #stxlist, #stxquote, #stxquasi, #stxsplice, #stxunquote,
+    #typename, #typedef, #typespec, #union, #val
+
+
+    -->
+
+    <tr>
+        <td>#add(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1+e2</td>
+    </tr>
+
+    <tr>
+        <td>#aref(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1[e2]</td>
+    </tr>
+
+    <tr>
+        <td>#arrow(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1-&gt;e2</td>
+    </tr>
+
+    <tr>
+        <td>#band(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1 &amp; e2 (bitwise and)</td>
+    </tr>
+
+    <tr>
+        <td>#block(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: stx list of stx id's<br>
+            e2: stx list of expression stx expressions
+        </td>
+        <td>A block of cqct statements</td>
+    </tr>
+
+    <tr>
+        <td>#bor(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1 | e2 (bitwise or)</td>
+    </tr>
+
+    <tr>
+        <td>#break()</td>
+        <td>expression</td>
+        <td>N/A</td>
+        <td>break statement</td>
+    </tr>
+
+    <tr>
+        <td>#bxor(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1 ^ e2 (bitwise xor)</td>
+    </tr>
+
+    <tr>
+        <td>#call(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: stx list of expression expressions
+        </td>
+        <td>call e1 with arguments from stx list e2</td>
+    </tr>
+
+    <tr>
+        <td>#case(e1, e2)</td>
+        <td>switch</td>
+        <td>e1: stx value<br>
+            e2: expression
+        </td>
+        <td>A case in a switch statement. e1 is the value of the case, and
+            e2 is the code to be run in this case</td>
+    </tr>
+
+    <tr>
+        <td>#cast(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: stx type<br>
+            e2: expression
+        </td>
+        <td>Cast expression e2 to the type specified by e1</td>
+    </tr>
+
+    <tr>
+        <td>#cond(e1, e2, e3)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression<br>
+            e3: expression
+        </td>
+        <td>e1 ? e2 : e3</td>
+    </tr>
+
+    <tr>
+        <td>#container(e1, e2, e3)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: type<br>
+            e3: expression
+        </td>
+        <td>@containerof(e1, e2, e3)</td>
+    </tr>
+
+    <tr>
+        <td>#continue()</td>
+        <td>expression</td>
+        <td>N/A</td>
+        <td>continue statement</td>
+    </tr>
+
+    <tr>
+        <td>#defaut(e1)</td>
+        <td>switch</td>
+        <td>e1: expression</td>
+        <td>default block of a switch statement</td>
+    </tr>
+
+    <tr>
+        <td>#define(e1, e2, e3)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+             e2: stx list of stx ids or stx ellipsis<br>
+             e3: expression
+        </td>
+        <td>corresponds to an @define defining e1 with arguments
+            described by stx list e2 and with code block e3</td>
+    </tr>
+
+    <tr>
+        <td>#defloc(e1, e2, e3)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+             e2: stx list of stx ids or stx ellipsis<br>
+             e3: expression
+        </td>
+        <td>corresponds to an @defloc defining e1 with arguments
+            described by stx list e2 and with code block e3</td>
+    </tr>
+
+    <tr>
+        <td>#defrec(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+             e2: stx list of stx ids
+        </td>
+        <td>corresponds to an @record defining record type e1 with
+            fields in stx list e2</td>
+    </tr>
+
+    <tr>
+        <td>#defstx(e1, e2, e3, e4)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+            e2: stx list of stx ids or stx ellipsis<br>
+            e3: stx id<br>
+            e4: expression<br>
+        </td>
+        <td>@defstx definition of e1 (the stx id does not include
+            the '@') with parameters e2, and id e3 to reference the macro
+            body, with e4 containing the macro body</td>
+    </tr>
+
+    <tr>
+        <td>#deref(e1)</td>
+        <td>expression</td>
+        <td> e1: expression
+        </td>
+        <td>dereference e1</td>
+    </tr>
+
+    <tr>
+        <td>#do(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>do { ... } while loop. e1 is the block, and e2 is the condition
+        </td>
+    </tr>
+
+    <tr>
+        <td>#dot(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: stx id
+        </td>
+        <td>a dot expression, i.e. e1.e2. e2 is the field name. 
+        </td>
+    </tr>
+
+    <tr>
+        <td>#elist(e1, e2)</td>
+        <td>stx list</td>
+        <td> e1: stx<br>
+             e2: stx list
+        </td>
+        <td>A stx list object.
+            #[] or <a href=#fn:Zcons>Zcons</a> are preferred
+            to using #elist directly.
+        </td>
+    </tr>
+
+    <tr>
+        <td>#ellipsis()</td>
+        <td>stx ellipsis</td>
+        <td>N/A</td>
+        <td>An ellipsis for varargs functions
+        </td>
+    </tr>
+
+    <tr>
+        <td>#eq(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>Checks the equality of e1 and e2 (i.e. e1 == e2)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#for(e1, e2, e3, e4)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression<br>
+            e3: expression<br>
+            e4: expression<br>
+        </td>
+        <td>for loop. e1 is the initial condition, e2 is the check to see
+            if the loop should continue, e3 is the increment statement, and
+            e4 is the loop body
+        </td>
+    </tr>
+
+    <tr>
+        <td>#for(e1, e2, e3, e4)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression<br>
+            e3: expression<br>
+            e4: expression
+        </td>
+        <td>for loop. e1 is the initial condition, e2 is the check to see
+            if the loop should continue, e3 is the increment statement, and
+            e4 is the loop body
+        </td>
+    </tr>
+
+    <!--- XXX maybe we should introduce a lhs expression -->
+    <tr>
+        <td>#g(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assignment of e2 to e1.
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gadd(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 plus e2 (e1 += e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gband(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 binary and'ed with  e2 (e1 &= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gbor(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 binary or'ed with e2 (e1 |= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gbxor(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 binary xor'ed with e2 (e1 ^= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gdiv(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 divided by e2 (e1 /= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#ge(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>e1 greater than or equal to e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gmod(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 mod'ed by e2 (e1 %= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gmul(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 multiplied by e2 (e1 *= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gshl(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 shifted left by e2 (e1 &lt;&lt;= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gshr(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression
+        </td>
+        <td>Assign e1 to e1 shifted right by e2 (e1 &gt;&gt;= e2).
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gsub(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>subtrace e2 from e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#global(e1)</td>
+        <td>expression</td>
+        <td> e1: stx list of stx id's<br>
+        </td>
+        <td>List of defined globals
+        </td>
+    </tr>
+
+    <tr>
+        <td>#goto(e1)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+        </td>
+        <td>goto the given id
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gt(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>checks if e1 is strictly greater than e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#gt(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>checks if e1 is strictly greater than e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#if(e1, e2, e3)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+            e2: expression<br>
+            e3: expression
+        </td>
+        <td>Runs e1, then if e1 is nil or 0, run e3, otherwise run e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#label(e1)</td>
+        <td>expression</td>
+        <td> e1: stx id
+        </td>
+        <td>Tag this line as a target for a goto statement
+        </td>
+    </tr>
+
+    <tr>
+        <td>#lambda(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: stx list of stx id<br>
+             e2: expression
+        </td>
+        <td>defines a procedure with parameters e1 and block e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#land(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>computes the result of e1 logically and'ed to e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#le(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>computes the result of e1 less than or equal to e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#list(e1)</td>
+        <td>expression</td>
+        <td> e1: stx list of expression
+        </td>
+        <td>creates a cqct list
+        </td>
+    </tr>
+
+    <tr>
+        <td>#pair(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>creates a pair
+        </td>
+    </tr>
+
+    <tr>
+        <td>#lor(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>logical or of the results of e1 and e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#lt(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>computes e1 strictly less than e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#mcall(e1, e2, e3)</td>
+        <td>expression</td>
+        <td> e1: stx id<br>
+            e2: stx list of expression<br>
+            e3: expression
+        </td>
+        <td>
+        </td>
+    </tr>
+
+    <tr>
+        <td>#match(e1, e2)</td>
+        <td>switch</td>
+        <td> e1: pattern<br>
+            e2: expression
+        </td>
+        <td>A match statement inside of a switch statement
+        </td>
+    </tr>
+
+    <tr>
+        <td>#mkctype(e1)</td>
+        <td>expression</td>
+        <td> e1: typename
+        </td>
+        <td>a @typename statement
+        </td>
+    </tr>
+
+    <tr>
+        <td>#mod(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>A mod statement (e1 % e2)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#mul(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>A multiply statement (e1 * e2)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#neq(e1, e2)</td>
+        <td>expression</td>
+        <td> e1: expression<br>
+             e2: expression
+        </td>
+        <td>A not equal statement (e1 != e2)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#nop()</td>
+        <td>expression</td>
+        <td>N/A
+        </td>
+        <td>A no-op (operation that does nothing)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#nil()</td>
+        <td>expression</td>
+        <td>N/A
+        </td>
+        <td>A statement that evaluates to nil
+        </td>
+    </tr>
+
+    <tr>
+        <td>#postdec(e1)</td>
+        <td>expression</td>
+        <td>e1: stx id
+        </td>
+        <td>Return the value of e1 then decrement e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#postinc(e1)</td>
+        <td>expression</td>
+        <td>e1: stx id
+        </td>
+        <td>Return the value of e1 then increment e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#predec(e1)</td>
+        <td>expression</td>
+        <td>e1: stx id
+        </td>
+        <td>Decrement e1 then return the value
+        </td>
+    </tr>
+
+    <tr>
+        <td>#preinc(e1)</td>
+        <td>expression</td>
+        <td>e1: stx id
+        </td>
+        <td>Increment e1 then return the value
+        </td>
+    </tr>
+
+    <tr>
+        <td>#ref(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Return a pointer to the expression e1 (&amb;e1)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#ret()</td>
+        <td>expression</td>
+        <td>N/A
+        </td>
+        <td>Return statement
+        </td>
+    </tr>
+
+    <tr>
+        <td>#scope(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>A scope (often paired with a block)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#shl(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+             e2: expression
+        </td>
+        <td>Shift e1 left by e2 bits
+        </td>
+    </tr>
+
+    <tr>
+        <td>#shr(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+             e2: expression
+        </td>
+        <td>Shift e1 right by e2 bits
+        </td>
+    </tr>
+
+    <tr>
+        <td>#sizeofe(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Size of the expression e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#sizeoft(e1)</td>
+        <td>expression</td>
+        <td>e1: typename
+        </td>
+        <td>Size of the type e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#stx(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: stx id <br>
+             e2: stx list of expressions
+        </td>
+        <td>An stx expression with id e1 (without the '#') and
+            parameters e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#sub(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression <br>
+             e2: expression
+        </td>
+        <td>Subtrace e2 from e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#switch(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression <br>
+             e2: stx list of stx switch
+        </td>
+        <td>Switch statement, switching on e1 with cases defined
+            by e2 (match statements included)
+        </td>
+    </tr>
+
+    <tr>
+        <td>#tab(e1)</td>
+        <td>expression</td>
+        <td>e1: stx list of two element stx lists of evaluable
+        </td>
+        <td>Defines a new table, where keys are the first element of
+            each of the provided lists that are mapped to the second
+            element of each of the provided lists
+        </td>
+    </tr>
+
+    <tr>
+        <td>#ticke(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: stx id<br>
+            e2: stx id
+        </td>
+        <td>A tick expression to reference a value in a domain,
+            i.e. t`x, where x is a symbol defined in the domain t
+        </td>
+    </tr>
+
+    <tr>
+        <td>#tickt(e1, e2)</td>
+        <td>type</td>
+        <td>e1: stx id<br>
+            e2 stx id
+        </td>
+        <td>A tick expression to reference a type in a domain,
+            i.e. t`x, where x is a type defined in the domain t
+        </td>
+    </tr>
+
+    <tr>
+        <td>#typeofe(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Returns the typeof the computed expression e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#typeoft(e1)</td>
+        <td>expression</td>
+        <td>e1: type
+        </td>
+        <td>Returns the typeof the type e1
+        </td>
+    </tr>
+
+    <tr>
+        <td>#uminus(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Unary minus of the given expression
+        </td>
+    </tr>
+
+    <tr>
+        <td>#unot(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Unary not
+        </td>
+    </tr>
+
+    <tr>
+        <td>#uplus(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Unary plus (i.e. "+x");
+        </td>
+    </tr>
+
+    <tr>
+        <td>#utwiddle(e1)</td>
+        <td>expression</td>
+        <td>e1: expression
+        </td>
+        <td>Unary binary not (i.e. "~x");
+        </td>
+    </tr>
+
+    <tr>
+        <td>#while(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>While loop with condition e1 and body e2
+        </td>
+    </tr>
+
+    <tr>
+        <td>#xcast(e1, e2)</td>
+        <td>expression</td>
+        <td>e1: expression<br>
+            e2: expression
+        </td>
+        <td>Extended cast of e2 to the domain or type computed by e1
+        </td>
+    </tr>
+
+
+
+</table>
+</div>
+
+
+</body>
+</html>
