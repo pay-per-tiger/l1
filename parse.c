@@ -860,7 +860,7 @@ doparse(U *ctx, char *buf, u64 len, char *whence, u32 wlen, unsigned line)
 		char buf[256];
 		buf[0] = '\0';
 		if (ctx->parse_error) {
-			strncpy(buf, ctx->parse_error, sizeof(buf));
+			strncpy(buf, ctx->parse_error, sizeof(buf) - 1);
 			efree(ctx->parse_error);
 		}
 		while (popyy(ctx)) { }
