@@ -12,5 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/checkout@master
     - name: make
-      run: make
+      run: apt install bison ; apt install flex ; make
