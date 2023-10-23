@@ -7,8 +7,12 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/ipc.h>
 #include <sys/wait.h>
+#include <sys/sem.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <sys/ptrace.h>
 #include <netinet/in.h>
@@ -810,7 +814,12 @@ main(int argc,char **argv) {
 #ifdef SYS_socket // linux i386 uses socketcall
 		{ "socket",		SYS_socket },
 		{ "connect",		SYS_connect },
+#ifdef SYS_accept		
 		{ "accept",		SYS_accept },
+#endif
+#ifdef SYS_accept4		
+		{ "accept4",		SYS_accept4 },
+#endif
 		{ "sendto",		SYS_sendto },
 		{ "recvfrom",		SYS_recvfrom },
 		{ "sendmsg",		SYS_sendmsg },
@@ -842,7 +851,9 @@ main(int argc,char **argv) {
 #endif
 #ifdef SYS_shmget // linux i386 misses these
 		{ "semget",		SYS_semget },
+#ifdef SYS_semop // alpine linux in ios missed this		
 		{ "semop",		SYS_semop },
+#endif		
 		{ "semctl",		SYS_semctl },
 		{ "shmdt",		SYS_shmdt },
 		{ "msgget",		SYS_msgget },
@@ -902,7 +913,9 @@ main(int argc,char **argv) {
 		{ "lchown",		SYS_lchown },
 #endif
 		{ "umask",		SYS_umask },
+#ifdef SYS_gettimeofday		
 		{ "gettimeofday",	SYS_gettimeofday },
+#endif
 #ifdef SYS_getrlimit // some linux miss this
 		{ "getrlimit",		SYS_getrlimit },
 #endif
@@ -1014,7 +1027,9 @@ main(int argc,char **argv) {
 		{ "chroot",		SYS_chroot },
 		{ "sync",		SYS_sync },
 		{ "acct",		SYS_acct },
+#ifdef SYS_settimeofday
 		{ "settimeofday",	SYS_settimeofday },
+#endif		
 		{ "mount",		SYS_mount },
 #ifdef SYS_umount2
 		{ "umount2",		SYS_umount2 },
@@ -1134,9 +1149,23 @@ main(int argc,char **argv) {
 #endif
 #ifdef SYS_timer_create
 		{ "timer_create",	SYS_timer_create },
+#endif
+#ifdef SYS_timer_settime
 		{ "timer_settime",	SYS_timer_settime },
+#endif
+#ifdef SYS_timer_settime32
+		{ "timer_settime32",	SYS_timer_settime32 },
+#endif
+#ifdef SYS_timer_gettime
 		{ "timer_gettime",	SYS_timer_gettime },
+#endif
+#ifdef SYS_timer_gettime32
+		{ "timer_gettime32",	SYS_timer_gettime32 },
+#endif
+#ifdef SYS_timer_getoverrun
 		{ "timer_getoverrun",	SYS_timer_getoverrun },
+#endif
+#ifdef SYS_timer_delete
 		{ "timer_delete",	SYS_timer_delete },
 #endif
 #ifdef SYS_clock
