@@ -22,6 +22,12 @@ unix_linux_x86 = @names c32le {
 		@0x60;
 	};
 
+	struct stat64 {
+	       @16 int32 st_mode;
+	       @44 uint64 st_size;
+	       @144 ;
+	};
+
 	typedef long __kernel_long_t;
 	typedef __kernel_long_t __kernel_time_t;
 	typedef __kernel_long_t __kernel_suseconds_t;
